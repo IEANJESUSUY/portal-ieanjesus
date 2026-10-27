@@ -1,0 +1,19 @@
+# Fuentes de referencia descargadas para análisis; no forman parte de la aplicación.
+work/churchcrm-source/
+work/.pydeps/
+work/.pip-temp/
+work/video-review/
+
+# Dependencias y resultados generados de la aplicación oficial.
+app/node_modules/
+app/dist/
+app/*.tsbuildinfo
+app/vite.config.js
+app/vite.config.d.ts
+output/
+app/data/
+
+# Archivos temporales y capturas de pruebas automáticas.
+tmp/
+.playwright-cli/
+

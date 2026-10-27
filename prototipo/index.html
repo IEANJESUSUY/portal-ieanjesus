@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Prototipo de administración nacional para iglesias locales">
+  <title>Portal Nacional · Prototipo</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23152c25'/%3E%3Cpath d='M29 12h6v12h10v6H35v22h-6V30H19v-6h10z' fill='%23f1c96b'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">✦</span>
+        <div>
+          <strong>Portal Nacional</strong>
+          <span>Administración de iglesias</span>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Navegación principal">
+        <button class="nav-item active" data-view="inicio"><span>01</span> Inicio</button>
+        <button class="nav-item" data-view="iglesias"><span>02</span> Iglesias</button>
+        <button class="nav-item" data-view="familias"><span>03</span> Familias</button>
+        <button class="nav-item" data-view="personas"><span>04</span> Personas</button>
+        <button class="nav-item" data-view="cultos"><span>05</span> Cultos</button>
+        <button class="nav-item" data-view="asistencia"><span>06</span> Asistencia</button>
+        <button class="nav-item" data-view="finanzas"><span>07</span> Finanzas</button>
+        <button class="nav-item" data-view="informes"><span>08</span> Informes</button>
+      </nav>
+
+      <div class="scope-card">
+        <span>Vista actual</span>
+        <strong id="scope-label">Administración nacional</strong>
+        <button id="change-role" class="text-button">Cambiar perfil</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="menu-button" id="menu-button" aria-label="Abrir menú" aria-expanded="false">☰</button>
+        <div>
+          <p class="eyebrow" id="section-eyebrow">VISIÓN NACIONAL</p>
+          <h1 id="section-title">Resumen general</h1>
+        </div>
+        <div class="top-actions">
+          <button class="quiet-button" id="notification-button" aria-label="Notificaciones">3 avisos</button>
+          <div class="user-chip">
+            <span class="avatar">MR</span>
+            <div><strong>María Rodríguez</strong><small>Administradora</small></div>
+          </div>
+        </div>
+      </header>
+
+      <section class="view active" id="view-inicio">
+        <div class="welcome-row">
+          <div>
+            <h2>Buen día, María</h2>
+            <p>Una mirada clara al movimiento de las congregaciones durante octubre.</p>
+          </div>
+          <button class="primary-button" data-view-target="cultos">Registrar culto</button>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card featured">
+            <span>Asistencia este mes</span>
+            <strong>1.284</strong>
+            <small>+8% respecto a septiembre</small>
+          </article>
+          <article class="stat-card"><span>Congregaciones</span><strong>11</strong><small>10 informaron esta semana</small></article>
+          <article class="stat-card"><span>Cultos registrados</span><strong>42</strong><small>4 pendientes de revisión</small></article>
+          <article class="stat-card"><span>Visitas nuevas</span><strong>37</strong><small>12 requieren seguimiento</small></article>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="panel attendance-panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">ASISTENCIA</p><h3>Movimiento mensual</h3></div>
+              <select aria-label="Período del gráfico"><option>Últimos 6 meses</option><option>Este año</option></select>
+            </div>
+            <div class="chart" aria-label="Gráfico demostrativo de asistencia mensual">
+              <div class="chart-line"></div>
+              <div class="chart-points">
+                <span style="--x:3%;--y:62%" data-value="Abr · 980"></span>
+                <span style="--x:22%;--y:48%" data-value="May · 1.060"></span>
+                <span style="--x:41%;--y:54%" data-value="Jun · 1.020"></span>
+                <span style="--x:60%;--y:34%" data-value="Jul · 1.150"></span>
+                <span style="--x:79%;--y:27%" data-value="Ago · 1.200"></span>
+                <span style="--x:97%;--y:16%" data-value="Oct · 1.284"></span>
+              </div>
+              <div class="chart-labels"><span>Abr</span><span>May</span><span>Jun</span><span>Jul</span><span>Ago</span><span>Oct</span></div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">PENDIENTES</p><h3>Requieren atención</h3></div></div>
+            <ul class="task-list">
+              <li><span class="task-icon warm">12</span><div><strong>Seguimientos pendientes</strong><small>Personas con ausencias reiteradas</small></div></li>
+              <li><span class="task-icon blue">4</span><div><strong>Cultos sin verificar</strong><small>Ofrendas pendientes de tesorería</small></div></li>
+              <li><span class="task-icon green">2</span><div><strong>Informes recibidos</strong><small>Listos para revisión nacional</small></div></li>
+            </ul>
+          </article>
+        </div>
+
+        <article class="panel churches-panel">
+          <div class="panel-heading"><div><p class="eyebrow">CONGREGACIONES</p><h3>Resumen de esta semana</h3></div><button class="text-button" data-view-target="iglesias">Ver todas</button></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Iglesia</th><th>Pastor</th><th>Asistencia</th><th>Ofrenda</th><th>Estado</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Montevideo Central</strong></td><td>Juan Pérez</td><td>184</td><td>$ 48.250</td><td><span class="status ok">Completo</span></td></tr>
+                <tr><td><strong>Las Piedras</strong></td><td>Daniel Silva</td><td>96</td><td>$ 21.400</td><td><span class="status ok">Completo</span></td></tr>
+                <tr><td><strong>Pando</strong></td><td>Raquel Méndez</td><td>71</td><td>—</td><td><span class="status pending">Pendiente</span></td></tr>
+                <tr><td><strong>Ciudad de la Costa</strong></td><td>Marcos Sosa</td><td>113</td><td>$ 30.120</td><td><span class="status review">Revisar</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="view" id="view-iglesias">
+        <div class="section-actions"><p>11 congregaciones registradas en la organización.</p><button class="primary-button" data-toast="Nueva iglesia: formulario en preparación">Agregar iglesia</button></div>
+        <div class="church-grid">
+          <article class="church-card"><span class="church-initials">MC</span><div><h3>Montevideo Central</h3><p>Pastor Juan Pérez · 286 personas</p></div><dl><div><dt>Asistencia mensual</dt><dd>734</dd></div><div><dt>Cultos</dt><dd>9</dd></div></dl><button class="secondary-button" data-toast="Abriendo Montevideo Central">Ver iglesia</button></article>
+          <article class="church-card"><span class="church-initials">LP</span><div><h3>Las Piedras</h3><p>Pastor Daniel Silva · 142 personas</p></div><dl><div><dt>Asistencia mensual</dt><dd>381</dd></div><div><dt>Cultos</dt><dd>8</dd></div></dl><button class="secondary-button" data-toast="Abriendo Las Piedras">Ver iglesia</button></article>
+          <article class="church-card"><span class="church-initials">PA</span><div><h3>Pando</h3><p>Pastora Raquel Méndez · 98 personas</p></div><dl><div><dt>Asistencia mensual</dt><dd>264</dd></div><div><dt>Cultos</dt><dd>8</dd></div></dl><button class="secondary-button" data-toast="Abriendo Pando">Ver iglesia</button></article>
+        </div>
+      </section>
+
+      <section class="view" id="view-familias">
+        <div class="section-actions family-toolbar">
+          <div class="segmented-control" role="group" aria-label="Vista de familias">
+            <button class="active" data-family-mode="list">Listado</button>
+            <button data-family-mode="map">Mapa familiar</button>
+          </div>
+          <div class="toolbar-actions">
+            <label class="compact-select">Iglesia
+              <select id="family-church-filter"><option>Todas las iglesias</option><option selected>Maldonado</option><option>Montevideo Central</option><option>Las Piedras</option></select>
+            </label>
+            <button class="primary-button" id="add-family-button">Agregar familia</button>
+          </div>
+        </div>
+
+        <div id="family-list-mode">
+          <article class="panel family-summary">
+            <div><p class="eyebrow">MALDONADO</p><h3>Directorio de familias</h3><p>42 familias · 118 personas registradas</p></div>
+            <label class="search-field"><span>Buscar</span><input id="family-search" type="search" placeholder="Apellido, dirección o teléfono"></label>
+          </article>
+
+          <div class="family-directory" id="family-directory">
+            <article class="family-row">
+              <span class="family-monogram">FA</span>
+              <div class="family-main"><h3>Familia Acosta</h3><p>3 integrantes · Miembros activos</p></div>
+              <div><span class="field-label">Dirección</span><strong>Av. Aiguá 1245, Maldonado</strong></div>
+              <div><span class="field-label">Contacto</span><strong>099 438 220</strong><small>acosta@ejemplo.uy</small></div>
+              <button class="secondary-button family-detail-button" data-family="Acosta">Ver ficha</button>
+            </article>
+            <article class="family-row">
+              <span class="family-monogram blue-tone">FR</span>
+              <div class="family-main"><h3>Familia Rodríguez</h3><p>5 integrantes · Miembros activos</p></div>
+              <div><span class="field-label">Dirección</span><strong>Ventura Alegre 810, Maldonado</strong></div>
+              <div><span class="field-label">Contacto</span><strong>098 615 773</strong><small>Sin correo registrado</small></div>
+              <button class="secondary-button family-detail-button" data-family="Rodríguez">Ver ficha</button>
+            </article>
+            <article class="family-row">
+              <span class="family-monogram gold-tone">FS</span>
+              <div class="family-main"><h3>Familia Silva</h3><p>2 integrantes · En seguimiento</p></div>
+              <div><span class="field-label">Dirección</span><strong>Ituzaingó 376, Maldonado</strong></div>
+              <div><span class="field-label">Contacto</span><strong>092 771 404</strong><small>silva@ejemplo.uy</small></div>
+              <button class="secondary-button family-detail-button" data-family="Silva">Ver ficha</button>
+            </article>
+          </div>
+        </div>
+
+        <div id="family-map-mode" hidden>
+          <div class="map-layout">
+            <aside class="panel map-list">
+              <p class="eyebrow">MALDONADO</p><h3>Ubicación de las familias</h3>
+              <p>Selecciona una familia para centrar el mapa.</p>
+              <button class="map-family active" data-lat="-34.9011" data-lon="-54.9504"><strong>Familia Acosta</strong><span>Av. Aiguá 1245</span></button>
+              <button class="map-family" data-lat="-34.9064" data-lon="-54.9581"><strong>Familia Rodríguez</strong><span>Ventura Alegre 810</span></button>
+              <button class="map-family" data-lat="-34.8994" data-lon="-54.9461"><strong>Familia Silva</strong><span>Ituzaingó 376</span></button>
+            </aside>
+            <div class="map-frame">
+              <iframe id="family-map" title="Mapa familiar de Maldonado" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=-54.9704%2C-34.9111%2C-54.9304%2C-34.8911&amp;layer=mapnik&amp;marker=-34.9011%2C-54.9504"></iframe>
+              <div class="map-caption"><strong>Familia Acosta</strong><span>Datos ficticios para el prototipo · Mapa de OpenStreetMap</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-personas">
+        <div class="section-actions">
+          <label class="search-field"><span>Buscar</span><input id="person-search" type="search" placeholder="Nombre, teléfono o iglesia"></label>
+          <button class="primary-button" data-toast="Nuevo perfil: formulario en preparación">Agregar persona</button>
+        </div>
+        <article class="panel">
+          <div class="table-wrap"><table id="people-table"><thead><tr><th>Persona</th><th>Iglesia</th><th>Función</th><th>Última asistencia</th><th>Contacto</th></tr></thead><tbody>
+            <tr><td><strong>Juan Pérez</strong><small class="table-sub">Miembro desde 2011</small></td><td>Montevideo Central</td><td>Pastor</td><td>5 oct 2026</td><td>099 123 456</td></tr>
+            <tr><td><strong>María Rodríguez</strong><small class="table-sub">Miembro desde 2015</small></td><td>Montevideo Central</td><td>Secretaría</td><td>5 oct 2026</td><td>098 456 221</td></tr>
+            <tr><td><strong>Lucía Fernández</strong><small class="table-sub">Visita recurrente</small></td><td>Las Piedras</td><td>Visita</td><td>28 sep 2026</td><td>092 778 430</td></tr>
+            <tr><td><strong>Martín Sosa</strong><small class="table-sub">Miembro desde 2020</small></td><td>Pando</td><td>Tesorería</td><td>4 oct 2026</td><td>096 330 841</td></tr>
+          </tbody></table></div>
+        </article>
+      </section>
+
+      <section class="view" id="view-cultos">
+        <div class="form-layout">
+          <article class="panel form-panel">
+            <div class="panel-heading"><div><p class="eyebrow">NUEVO REGISTRO</p><h3>Registrar un culto</h3></div><span class="draft-badge">Borrador</span></div>
+            <form id="service-form">
+              <div class="form-grid">
+                <label>Iglesia<select required><option>Montevideo Central</option><option>Las Piedras</option><option>Pando</option></select></label>
+                <label>Tipo de reunión<select required><option>Culto general</option><option>Reunión de oración</option><option>Evento especial</option></select></label>
+                <label>Fecha<input type="date" value="2026-10-11" required></label>
+                <label>Hora<input type="time" value="19:00" required></label>
+              </div>
+              <hr>
+              <h4>Asistencia por cantidades</h4>
+              <div class="counter-grid">
+                <label>Adultos<input class="attendance-input" type="number" min="0" value="38"></label>
+                <label>Jóvenes<input class="attendance-input" type="number" min="0" value="12"></label>
+                <label>Niños<input class="attendance-input" type="number" min="0" value="9"></label>
+                <label>Visitas<input class="attendance-input" type="number" min="0" value="4"></label>
+              </div>
+              <div class="total-row"><span>Asistencia total</span><strong id="attendance-total">63 personas</strong></div>
+              <label class="full-field">Ofrenda recaudada ($)<input type="number" min="0" value="18450"></label>
+              <label class="full-field">Observaciones<textarea rows="3" placeholder="Visitas nuevas, actividad especial o información importante">Se presentaron dos familias nuevas.</textarea></label>
+              <div class="form-actions"><button type="button" class="secondary-button" data-toast="Borrador guardado">Guardar borrador</button><button class="primary-button" type="submit">Registrar culto</button></div>
+            </form>
+          </article>
+          <aside class="panel helper-panel"><p class="eyebrow">RESUMEN</p><h3>Todo en un solo registro</h3><p>La asistencia y la ofrenda quedan vinculadas al culto. Tesorería podrá verificar el monto posteriormente.</p><ul><li>Registro rápido desde el teléfono</li><li>Lista detallada opcional</li><li>Historial de modificaciones</li></ul></aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-asistencia">
+        <div class="attendance-header">
+          <div>
+            <p class="eyebrow">CULTO GENERAL</p>
+            <h2>Domingo 11 de octubre · 19:00</h2>
+            <p>Iglesia Maldonado · Lista de 12 personas</p>
+          </div>
+          <div class="attendance-total-box"><span>Presentes</span><strong id="checked-count">7 / 12</strong><small id="attendance-percent">58% de asistencia</small></div>
+        </div>
+
+        <div class="attendance-toolbar panel">
+          <label class="search-field"><span>Buscar</span><input id="attendance-search" type="search" placeholder="Nombre o teléfono"></label>
+          <select id="attendance-category" aria-label="Filtrar categoría"><option value="all">Todos</option><option value="adulto">Adultos</option><option value="joven">Jóvenes</option><option value="nino">Niños</option></select>
+          <button class="secondary-button" id="check-all">Marcar todos</button>
+          <button class="primary-button" data-toast="Formulario de visita abierto">Agregar visita</button>
+        </div>
+
+        <div class="member-roster" id="member-roster">
+          <label class="member-card present" data-category="adulto"><input type="checkbox" checked><span class="member-photo forest-photo">JA</span><span class="member-info"><strong>José Acosta</strong><small>Adulto · Familia Acosta</small><em>099 438 220</em></span><span class="attendance-check">✓</span></label>
+          <label class="member-card present" data-category="adulto"><input type="checkbox" checked><span class="member-photo blue-photo">MA</span><span class="member-info"><strong>María Acosta</strong><small>Adulto · Familia Acosta</small><em>098 245 610</em></span><span class="attendance-check">✓</span></label>
+          <label class="member-card" data-category="joven"><input type="checkbox"><span class="member-photo gold-photo">LA</span><span class="member-info"><strong>Lucas Acosta</strong><small>Joven · Familia Acosta</small><em>Sin teléfono</em></span><span class="attendance-check">✓</span></label>
+          <label class="member-card present" data-category="adulto"><input type="checkbox" checked><span class="member-photo burgundy-photo">CR</span><span class="member-info"><strong>Carlos Rodríguez</strong><small>Adulto · Familia Rodríguez</small><em>098 615 773</em></span><span class="attendance-check">✓</span></label>
+          <label class="member-card present" data-category="adulto"><input type="checkbox" checked><span class="member-photo forest-photo">AR</span><span class="member-info"><strong>Ana Rodríguez</strong><small>Adulto · Familia Rodríguez</small><em>094 220 184</em></span><span class="attendance-check">✓</span></label>
+          <label class="member-card" data-category="nino"><input type="checkbox"><span class="member-photo blue-photo">SR</span><span class="member-info"><strong>Sofía Rodríguez</strong><small>Niña · Familia Rodríguez</small><em>Contacto familiar</em></span><span class="attendance-check">✓</span></label>
+          <label class="member-card present" data-category="joven"><input type="checkbox" checked><span class="member-photo gold-photo">MR</span><span class="member-info"><strong>Mateo Rodríguez</strong><small>Joven · Familia Rodríguez</small><em>092 184 036</em></span><span class="attendance-check">✓</span></label>
+          <label class="member-card" data-category="nino"><input type="checkbox"><span class="member-photo burgundy-photo">ER</span><span class="member-info"><strong>Emma Rodríguez</strong><small>Niña · Familia Rodríguez</small><em>Contacto familiar</em></span><span class="attendance-check">✓</span></label>
+          <label class="member-card present" data-category="adulto"><input type="checkbox" checked><span class="member-photo forest-photo">RS</span><span class="member-info"><strong>Raúl Silva</strong><small>Adulto · Familia Silva</small><em>092 771 404</em></span><span class="attendance-check">✓</span></label>
+          <label class="member-card present" data-category="adulto"><input type="checkbox" checked><span class="member-photo blue-photo">ES</span><span class="member-info"><strong>Elena Silva</strong><small>Adulto · Familia Silva</small><em>096 328 118</em></span><span class="attendance-check">✓</span></label>
+          <label class="member-card" data-category="adulto"><input type="checkbox"><span class="member-photo gold-photo">DM</span><span class="member-info"><strong>Daniel Méndez</strong><small>Adulto · Sin familia vinculada</small><em>099 672 045</em></span><span class="attendance-check">✓</span></label>
+          <label class="member-card" data-category="joven"><input type="checkbox"><span class="member-photo burgundy-photo">VF</span><span class="member-info"><strong>Valentina Ferreira</strong><small>Joven · Sin familia vinculada</small><em>091 540 263</em></span><span class="attendance-check">✓</span></label>
+        </div>
+
+        <div class="attendance-close panel">
+          <div><p class="eyebrow">CIERRE DEL CULTO</p><h3>Asistencia y ofrenda</h3><p>La ofrenda queda vinculada a esta reunión y pasa a verificación de tesorería.</p></div>
+          <label>Ofrenda total ($)<input id="service-offering" type="number" min="0" value="18450"></label>
+          <label>Visitas<input id="service-visitors" type="number" min="0" value="4"></label>
+          <button class="primary-button" id="close-service">Cerrar y guardar culto</button>
+        </div>
+      </section>
+
+      <section class="view" id="view-finanzas">
+        <div class="stats-grid compact"><article class="stat-card featured"><span>Ofrendas de octubre</span><strong>$ 286.430</strong><small>10 iglesias informaron</small></article><article class="stat-card"><span>Otros ingresos</span><strong>$ 42.000</strong><small>Actividades y aportes</small></article><article class="stat-card"><span>Gastos</span><strong>$ 118.760</strong><small>72% verificados</small></article><article class="stat-card"><span>Saldo del período</span><strong>$ 209.670</strong><small>Antes del cierre</small></article></div>
+        <article class="panel"><div class="panel-heading"><div><p class="eyebrow">MOVIMIENTOS</p><h3>Actividad reciente</h3></div><button class="primary-button" data-toast="Nuevo movimiento: formulario en preparación">Registrar movimiento</button></div><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Iglesia</th><th>Tipo</th><th>Monto</th><th>Estado</th></tr></thead><tbody><tr><td>5 oct</td><td>Ofrenda culto general</td><td>Montevideo Central</td><td>Ingreso</td><td>$ 48.250</td><td><span class="status ok">Verificado</span></td></tr><tr><td>4 oct</td><td>Compra de materiales</td><td>Pando</td><td>Gasto</td><td>$ 6.840</td><td><span class="status pending">Pendiente</span></td></tr><tr><td>4 oct</td><td>Ofrenda culto general</td><td>Las Piedras</td><td>Ingreso</td><td>$ 21.400</td><td><span class="status ok">Verificado</span></td></tr></tbody></table></div></article>
+      </section>
+
+      <section class="view" id="view-informes">
+        <div class="report-hero"><div><p class="eyebrow">INFORME CUATRIMESTRAL</p><h2>Mayo — agosto 2026</h2><p>Resumen consolidado de actividad, asistencia y finanzas.</p></div><button class="primary-button" data-toast="Vista previa del informe generada">Generar informe</button></div>
+        <div class="report-grid"><article class="panel"><h3>Asistencia</h3><strong class="report-value">4.812</strong><p>Asistencias registradas en 164 cultos.</p><div class="progress"><span style="width:82%"></span></div><small>8,2% de crecimiento frente al período anterior</small></article><article class="panel"><h3>Personas</h3><strong class="report-value">1.046</strong><p>Personas activas en las 11 congregaciones.</p><div class="progress"><span style="width:67%"></span></div><small>89 visitas nuevas durante el período</small></article><article class="panel"><h3>Finanzas</h3><strong class="report-value">$ 1.184.200</strong><p>Total de ofrendas e ingresos informados.</p><div class="progress"><span style="width:74%"></span></div><small>94% de los movimientos fueron verificados</small></article></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="role-dialog" id="family-dialog" hidden>
+    <div class="dialog-backdrop" data-close-family></div>
+    <section class="dialog wide-dialog" role="dialog" aria-modal="true" aria-labelledby="family-dialog-title">
+      <button class="dialog-close" data-close-family aria-label="Cerrar">×</button>
+      <p class="eyebrow">NUEVO REGISTRO</p><h2 id="family-dialog-title">Agregar una familia</h2>
+      <form id="family-form">
+        <div class="form-section-title"><strong>Datos familiares</strong><span>Información principal y de contacto</span></div>
+        <div class="form-grid three-columns">
+          <label>Apellido o nombre familiar<input name="familyName" required placeholder="Ej.: Familia González"></label>
+          <label>Iglesia<select><option>Maldonado</option><option>Montevideo Central</option><option>Las Piedras</option></select></label>
+          <label>Estado<select><option>Activa</option><option>En seguimiento</option><option>Inactiva</option></select></label>
+          <label>Dirección<input placeholder="Calle y número"></label>
+          <label>Ciudad<input value="Maldonado"></label>
+          <label>Departamento<select><option>Maldonado</option><option>Montevideo</option><option>Canelones</option></select></label>
+          <label>Código postal<input placeholder="20000"></label>
+          <label>Latitud<input inputmode="decimal" placeholder="-34.9011"></label>
+          <label>Longitud<input inputmode="decimal" placeholder="-54.9504"></label>
+          <label>Teléfono fijo<input type="tel" placeholder="4222 0000"></label>
+          <label>Teléfono principal<input type="tel" placeholder="09X XXX XXX"></label>
+          <label>Correo familiar<input type="email" placeholder="familia@ejemplo.uy"></label>
+          <label>Fecha de boda<input type="date"></label>
+          <label>Foto familiar<input type="file" accept="image/*" capture="environment"></label>
+        </div>
+        <div class="form-section-title"><strong>Primer integrante</strong><span>Luego podrás agregar más personas a la familia</span></div>
+        <div class="form-grid three-columns">
+          <label>Nombre<input required></label><label>Apellido<input required></label>
+          <label>Rol familiar<select><option>Jefe/a de familia</option><option>Cónyuge</option><option>Hijo/a</option><option>Otro</option></select></label>
+          <label>Género<select><option>Masculino</option><option>Femenino</option><option>Sin especificar</option></select></label>
+          <label>Fecha de nacimiento<input type="date"></label>
+          <label>Clasificación<select><option>Miembro</option><option>Visitante</option><option>Amigo/a</option><option>Niño/a</option></select></label>
+          <label>Foto personal<input type="file" accept="image/*" capture="user"></label>
+        </div>
+        <label class="full-field">Observaciones generales<textarea rows="2" placeholder="Información administrativa no sensible"></textarea></label>
+        <div class="form-actions"><button type="button" class="secondary-button" data-close-family>Cancelar</button><button class="primary-button" type="submit">Guardar familia</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="role-dialog" id="role-dialog" hidden>
+    <div class="dialog-backdrop" data-close-dialog></div>
+    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="role-title">
+      <button class="dialog-close" data-close-dialog aria-label="Cerrar">×</button>
+      <p class="eyebrow">CAMBIAR VISTA</p><h2 id="role-title">¿Cómo quieres recorrer el prototipo?</h2>
+      <div class="role-options">
+        <button data-role="Administración nacional"><strong>Administración nacional</strong><span>Ve todas las iglesias y estadísticas.</span></button>
+        <button data-role="Pastor · Montevideo Central"><strong>Pastor local</strong><span>Ve únicamente su congregación.</span></button>
+        <button data-role="Secretaría · Montevideo Central"><strong>Secretaría local</strong><span>Gestiona personas, cultos y asistencia.</span></button>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
+

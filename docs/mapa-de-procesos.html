@@ -1,0 +1,357 @@
+<title>Mapa de procesos del Portal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Layout: una columna de lectura; cada proceso es una tira de pasos que se acuesta en pantallas anchas y se apila en el celular. */
+:root {
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --ink: #1d2740;
+  --muted: #5c6884;
+  --line: #dbe2ef;
+  --navy: #243b70;
+  --navy-2: #4169b2;
+  --gold: #f2ce67;
+  --gold-ink: #6b5310;
+  --tile: #eaf0fa;
+  --quick: #e4f2e9;   --quick-ink: #23613a;
+  --full: #e8edf8;    --full-ink: #2e4a85;
+  --auto: #fdf3d6;    --auto-ink: #6b5310;
+  --nat: #f1e9f7;     --nat-ink: #5b3a7a;
+  --warn: #fdecea;    --warn-ink: #9a2a1b;
+  --display: "Lexend", "Segoe UI", system-ui, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10162a; --surface: #182139; --ink: #e7ecf7; --muted: #a3afca; --line: #2b3755;
+    --navy: #9fb8ef; --navy-2: #7f9ee3; --gold: #f2ce67; --gold-ink: #f2ce67; --tile: #22304f;
+    --quick: #183a28; --quick-ink: #9fe0b6; --full: #22305a; --full-ink: #b8caf3;
+    --auto: #3b3216; --auto-ink: #f3d987; --nat: #34264a; --nat-ink: #d9c2f0; --warn: #4a1f1a; --warn-ink: #f6b4a8;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10162a; --surface: #182139; --ink: #e7ecf7; --muted: #a3afca; --line: #2b3755;
+  --navy: #9fb8ef; --navy-2: #7f9ee3; --gold: #f2ce67; --gold-ink: #f2ce67; --tile: #22304f;
+  --quick: #183a28; --quick-ink: #9fe0b6; --full: #22305a; --full-ink: #b8caf3;
+  --auto: #3b3216; --auto-ink: #f3d987; --nat: #34264a; --nat-ink: #d9c2f0; --warn: #4a1f1a; --warn-ink: #f6b4a8;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.55; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 64px; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+p { margin: 0; }
+
+.hero { display: grid; gap: 12px; padding: 28px 24px; border-radius: 22px; background: linear-gradient(135deg, #243b70, #4169b2); color: #fff; }
+.hero .eyebrow { color: #f2ce67; }
+.hero h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); line-height: 1.12; }
+.hero p { max-width: 62ch; color: #e3eafa; font-size: 1.08rem; }
+.eyebrow { font-family: var(--display); font-size: .78rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--navy-2); }
+
+section { display: grid; gap: 18px; }
+.section-head { display: grid; gap: 6px; max-width: 70ch; }
+.section-head h2 { font-size: clamp(1.4rem, 3.6vw, 1.8rem); color: var(--navy); }
+.section-head p { color: var(--muted); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: .82rem; font-weight: 700; white-space: nowrap; }
+.tag.quick { background: var(--quick); color: var(--quick-ink); }
+.tag.full { background: var(--full); color: var(--full-ink); }
+.tag.auto { background: var(--auto); color: var(--auto-ink); }
+.tag.nat { background: var(--nat); color: var(--nat-ink); }
+.tag.new { background: var(--warn); color: var(--warn-ink); }
+
+/* Mapa general */
+.overview { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 20px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.ov-col { display: grid; gap: 8px; }
+.ov-col h3 { font-size: .8rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.ov-box { padding: 10px 12px; border-radius: 12px; background: var(--tile); font-weight: 700; color: var(--navy); }
+.ov-box small { display: block; font-weight: 400; color: var(--muted); font-size: .88rem; }
+.ov-box.report { background: var(--navy); color: #fff; }
+.ov-box.report small { color: #d5def3; }
+.ov-box.nat { background: var(--nat); color: var(--nat-ink); }
+.arrow { font-family: var(--display); font-size: 1.6rem; color: var(--navy-2); text-align: center; }
+@media (max-width: 760px) {
+  .overview { grid-template-columns: minmax(0, 1fr); }
+  .arrow { transform: rotate(90deg); line-height: 1; }
+}
+
+/* Procesos */
+.process { display: grid; gap: 16px; padding: 22px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.process-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+.process-head h3 { font-size: 1.25rem; color: var(--navy); }
+.process-head .when { color: var(--muted); font-size: .95rem; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.steps li { position: relative; display: grid; align-content: start; gap: 6px; padding: 14px 14px 14px 14px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); counter-increment: step; }
+.steps li::before { content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--navy); color: var(--surface); font-family: var(--display); font-size: .85rem; font-weight: 700; }
+.steps li strong { font-size: 1.02rem; line-height: 1.3; }
+.steps li span.d { color: var(--muted); font-size: .94rem; line-height: 1.4; }
+.steps li .tag { justify-self: start; }
+.steps li.proposed { border-style: dashed; border-color: var(--warn-ink); }
+.feeds { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); font-size: .95rem; color: var(--muted); }
+.feeds b { color: var(--ink); }
+.note { padding: 12px 14px; border-radius: 12px; background: var(--auto); color: var(--auto-ink); font-size: .95rem; }
+
+/* Diagnóstico */
+.checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.check { display: grid; gap: 8px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.check h3 { font-size: 1.05rem; }
+.check .status { font-family: var(--display); font-size: .78rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.check.ok .status { color: var(--quick-ink); }
+.check.gap .status { color: var(--warn-ink); }
+.check p { color: var(--muted); font-size: .96rem; }
+.check p b { color: var(--ink); }
+
+/* Menú propuesto */
+.menu-compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.menu-card { padding: 18px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); display: grid; gap: 10px; align-content: start; }
+.menu-card h3 { font-size: 1.05rem; color: var(--navy); }
+.menu-card ol, .menu-card ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+.menu-card li small { color: var(--muted); }
+.menu-card.after { border: 2px solid var(--navy-2); }
+
+/* Hoja de ruta */
+.road { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.road li { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 14px; padding: 14px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.road .phase { font-family: var(--display); font-weight: 700; color: var(--navy-2); }
+.road p { color: var(--muted); font-size: .96rem; }
+.road strong { display: block; color: var(--ink); }
+@media (max-width: 520px) { .road li { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+
+footer { color: var(--muted); font-size: .9rem; }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <span class="eyebrow">IEANJESÚS Uruguay · Iglesia Evangélica Apostólica del Nombre de Jesús</span>
+    <h1>Cómo va a funcionar la iglesia con el Portal</h1>
+    <p>Cada cosa que pasa en la congregación se anota una sola vez, en el momento, desde el celular. Con eso el sistema arma solo las listas, las finanzas y el informe del mes que recibe la Administración Nacional.</p>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">Cómo leer este mapa</span>
+      <h2>Quién hace cada paso y dónde</h2>
+    </div>
+    <div class="legend">
+      <span class="tag quick">Modo rápido · celular</span>
+      <span class="tag full">Sistema completo</span>
+      <span class="tag auto">Lo hace el sistema solo</span>
+      <span class="tag nat">Administración o comité nacional</span>
+      <span class="tag new">Cambio propuesto, todavía no está</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">El panorama</span>
+      <h2>Todo termina en el informe del mes</h2>
+      <p>Lo que se anota durante el mes no se vuelve a escribir. El informe toma esos números y la congregación solo agrega lo que el sistema no puede saber.</p>
+    </div>
+    <div class="overview" role="img" aria-label="Personas, asistencia, dinero y actividades alimentan el informe mensual, que llega a la Administración Nacional">
+      <div class="ov-col">
+        <h3>Se anota en el mes</h3>
+        <div class="ov-box">Personas<small>quién llega y quién es de la iglesia</small></div>
+        <div class="ov-box">Asistencia<small>lista de cada culto y visitas</small></div>
+        <div class="ov-box">Dinero<small>ofrendas, donaciones y gastos</small></div>
+        <div class="ov-box">Actividades<small>ayunos, vigilias, eventos</small></div>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="ov-col">
+        <h3>A fin de mes</h3>
+        <div class="ov-box report">Informe mensual<small>números ya cargados + actividades, bautismos y fotos que agrega la iglesia</small></div>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="ov-col">
+        <h3>Lo recibe</h3>
+        <div class="ov-box nat">Administración Nacional<small>lo marca como recibido, revisado, confirmado u observado</small></div>
+        <div class="ov-box nat">Comités nacionales<small>piden tareas y reciben sus entregas</small></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">Los procesos</span>
+      <h2>Paso a paso</h2>
+    </div>
+
+    <article class="process">
+      <div class="process-head">
+        <h3>1. Llega una persona nueva</h3>
+        <span class="when">En el culto o en una actividad</span>
+      </div>
+      <ol class="steps">
+        <li><strong>La persona visita la iglesia</strong><span class="d">Se la recibe como siempre.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>«Anotar persona nueva» → «Nos visita»</strong><span class="d">Nombre y, si quiere, teléfono. Nada más.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>Hombre o mujer, y niño, joven o adulto</strong><span class="d">Dos toques. Con esto el informe cuenta hombres, mujeres, jóvenes y niños.</span></li>
+        <li><span class="tag auto">Automático</span><strong>El sistema avisa si ya estaba anotada</strong><span class="d">Por nombre o teléfono, para no duplicarla.</span></li>
+        <li><span class="tag auto">Automático</span><strong>Aparece en la lista de asistencia</strong><span class="d">Desde el próximo culto se la marca con un toque.</span></li>
+        <li><span class="tag full">Sistema completo</span><strong>Con tiempo, se completa la ficha</strong><span class="d">Fecha de nacimiento, familia, dirección, bautismo. Cuando se integra, pasa a ser de la iglesia.</span></li>
+      </ol>
+      <div class="feeds"><b>Alimenta:</b> lista de asistencia · cumpleaños · visitas del mes · bautismos del informe</div>
+    </article>
+
+    <article class="process">
+      <div class="process-head">
+        <h3>2. Culto y asistencia</h3>
+        <span class="when">Cada culto (en Maldonado: jueves y domingo)</span>
+      </div>
+      <ol class="steps">
+        <li><span class="tag full">Una sola vez</span><strong>Se cargan los cultos fijos de la semana</strong><span class="d">Día y hora. No hace falta crear un culto cada semana.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>«Pasar lista» y elegir el culto</strong><span class="d">El sistema ya propone el culto de hoy.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>Tocar el nombre de cada uno que vino</strong><span class="d">Las visitas sin ficha se suman con el botón +.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>«Listo»</strong><span class="d">Se guarda la lista de ese día.</span></li>
+        <li><span class="tag auto">Automático</span><strong>Si un culto quedó sin lista, avisa</strong><span class="d">Aparece un recordatorio en la pantalla de inicio.</span></li>
+      </ol>
+      <div class="feeds"><b>Alimenta:</b> cultos del mes · promedio de asistencia · visitas · gráficos del informe</div>
+    </article>
+
+    <article class="process">
+      <div class="process-head">
+        <h3>3. Entra una ofrenda o una donación</h3>
+        <span class="when">Después de contar la ofrenda</span>
+      </div>
+      <ol class="steps">
+        <li><strong>Tesorería cuenta la ofrenda</strong><span class="d">Como se hace hoy, con otra persona presente.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>«Anotar dinero» → «Entró plata»</strong><span class="d">Escribe el monto en pesos.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>Elige de qué es</strong><span class="d">Ofrenda, Donación, Diezmos u otra entrada.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>«¿Es de un comité?» (opcional)</strong><span class="d">Por ejemplo, una ofrenda de Jóvenes. Así el comité la ve en sus números.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>Foto del recibo, si hay, y «Guardar»</strong><span class="d">Queda con fecha y comprobante.</span></li>
+        <li><span class="tag nat">Nacional</span><strong>La Administración ve solo los totales</strong><span class="d">Ingresos, egresos y resultado por congregación. No ve cada movimiento.</span></li>
+      </ol>
+      <p class="note"><b>Diezmos:</b> se anota el total del alfolí de la semana o del mes, nunca a nombre de una persona. El monto queda oculto y no se suma en los resúmenes ni en el informe nacional.</p>
+      <div class="feeds"><b>Alimenta:</b> finanzas locales · entradas del informe (sin diezmos) · totales nacionales por congregación</div>
+    </article>
+
+    <article class="process">
+      <div class="process-head">
+        <h3>4. Se paga un gasto</h3>
+        <span class="when">Luz, agua, alquiler, materiales, ayuda social</span>
+      </div>
+      <ol class="steps">
+        <li><span class="tag quick">Modo rápido</span><strong>«Anotar dinero» → «Salió plata»</strong><span class="d">Monto en pesos.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>En qué se gastó</strong><span class="d">Luz, Agua, Alquiler, Limpieza, Ayuda social u otro.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>Foto de la factura y «Guardar»</strong><span class="d">El comprobante queda guardado con el gasto.</span></li>
+        <li><span class="tag auto">Automático</span><strong>Se resta del balance del mes</strong><span class="d">Y aparece como salida en el informe.</span></li>
+      </ol>
+      <div class="feeds"><b>Alimenta:</b> balance del mes · salidas del informe · totales nacionales</div>
+    </article>
+
+    <article class="process">
+      <div class="process-head">
+        <h3>5. Una actividad especial</h3>
+        <span class="when">Ayuno, vigilia, evento, reunión de jóvenes</span>
+      </div>
+      <ol class="steps">
+        <li><span class="tag quick">Modo rápido</span><strong>«Calendario» → «Anotar una actividad»</strong><span class="d">Qué es, día y hora.</span></li>
+        <li><span class="tag auto">Automático</span><strong>Aparece en «Próximas actividades»</strong><span class="d">En el inicio y en el calendario de la iglesia.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>Ese día, «Pasar lista» de la actividad</strong><span class="d">Igual que en un culto.</span></li>
+        <li><span class="tag auto">Automático</span><strong>Se sugiere como actividad en el informe</strong><span class="d">Solo hace falta agregar una descripción y fotos.</span></li>
+      </ol>
+      <div class="feeds"><b>Alimenta:</b> calendario · encuentros del mes · actividades destacadas del informe</div>
+    </article>
+
+    <article class="process">
+      <div class="process-head">
+        <h3>6. El informe del mes</h3>
+        <span class="when">Los primeros días del mes siguiente</span>
+      </div>
+      <ol class="steps">
+        <li><span class="tag auto">Automático</span><strong>Aviso: «Falta enviar el informe»</strong><span class="d">Aparece en el inicio hasta que se envíe.</span></li>
+        <li><span class="tag quick">Modo rápido</span><strong>«Informe del mes» abre el editor</strong><span class="d">Cultos, asistencia, visitas, entradas y salidas ya están cargados.</span></li>
+        <li><span class="tag full">Editor</span><strong>Completar lo que el sistema no sabe</strong><span class="d">Bautismos en el Espíritu, canastas de amor, intercesión.</span></li>
+        <li><span class="tag full">Editor</span><strong>Agregar las actividades del mes</strong><span class="d">Con descripción y fotos. Se ofrecen las del calendario y las tareas de comités.</span></li>
+        <li><span class="tag full">Editor</span><strong>«Enviar informe»</strong><span class="d">Si un número estaba mal, se corrige en el informe sin tocar las listas.</span></li>
+        <li><span class="tag nat">Nacional</span><strong>Recibido → revisado → confirmado</strong><span class="d">Si falta algo, lo marca «observado» y vuelve a la iglesia para corregir.</span></li>
+      </ol>
+      <div class="feeds"><b>Resultado:</b> el informe llega en orden, con los mismos números para todas las iglesias, sin armarlo en Canva ni en Word</div>
+    </article>
+
+    <article class="process">
+      <div class="process-head">
+        <h3>7. Un comité nacional pide algo</h3>
+        <span class="when">Por ejemplo, Jóvenes pide el informe del culto misionero</span>
+      </div>
+      <ol class="steps">
+        <li><span class="tag nat">Comité</span><strong>Escribe la tarea con fecha límite</strong><span class="d">En palabras normales: qué necesita y para cuándo.</span></li>
+        <li><span class="tag auto">Automático</span><strong>Le llega a cada congregación</strong><span class="d">Aparece como «tenés tareas para hacer» en el inicio.</span></li>
+        <li><span class="tag full">Sistema completo</span><strong>La iglesia responde</strong><span class="d">Fecha de la actividad, asistencia, ofrenda, comentario y fotos.</span></li>
+        <li><span class="tag nat">Comité</span><strong>Revisa: aprobada u observada</strong><span class="d">Si está observada, la iglesia corrige y vuelve a enviar.</span></li>
+      </ol>
+      <div class="feeds"><b>Alimenta:</b> panel del comité · actividades sugeridas en el informe mensual</div>
+    </article>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">Revisión</span>
+      <h2>¿Alcanza con lo que se anota en el Modo rápido?</h2>
+      <p>Revisamos qué datos necesita el informe y de dónde salen. Encontramos cuatro huecos y un problema con los borradores, y ya están resueltos.</p>
+    </div>
+    <div class="checks">
+      <div class="check ok"><span class="status">Funciona</span><h3>Cultos, asistencia y visitas</h3><p>Cada lista del Modo rápido suma en el informe: cantidad de cultos, asistencia total y promedio de visitas.</p></div>
+      <div class="check ok"><span class="status">Funciona</span><h3>Entradas y salidas</h3><p>Todo lo anotado como dinero aparece en el informe y en los totales nacionales. Los diezmos quedan afuera, como se pidió.</p></div>
+      <div class="check ok"><span class="status">Arreglado</span><h3>Hombres, mujeres, jóvenes y niños</h3><p>Al anotar a alguien se marca <b>hombre o mujer</b> y <b>niño, joven o adulto</b>. Si después se carga la fecha de nacimiento, manda la fecha.</p></div>
+      <div class="check ok"><span class="status">Arreglado</span><h3>Cultos contados de más</h3><p>«Encuentros celebrados» cuenta solo los cultos y actividades <b>que tienen lista</b>. Una actividad agendada que todavía no pasó no suma.</p></div>
+      <div class="check ok"><span class="status">Arreglado</span><h3>Ofrendas de comités</h3><p>Al anotar dinero se puede elegir el comité. Una ofrenda de Jóvenes aparece en el panel de Jóvenes.</p></div>
+      <div class="check ok"><span class="status">Arreglado</span><h3>Bautismos en agua</h3><p>Se toman de las fichas, y si no están cargados se escriben directamente en el informe. El editor ahora lo aclara.</p></div>
+      <div class="check ok"><span class="status">Arreglado</span><h3>Borradores que no se actualizaban</h3><p>Un informe guardado como borrador ahora recalcula sus números con lo anotado después. Lo que la iglesia corrigió a mano se respeta.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">Propuesta</span>
+      <h2>Menos secciones para la congregación</h2>
+      <p>Hoy una congregación ve 11 secciones más el Modo rápido. Varias hacen casi lo mismo y obligan a saber dónde está cada cosa. La propuesta es dejar 5, con nombres que digan qué se hace.</p>
+    </div>
+    <div class="menu-compare">
+      <div class="menu-card">
+        <h3>Hoy</h3>
+        <ol>
+          <li>Inicio <small>(repite los botones del Modo rápido)</small></li>
+          <li>Personas y familias</li>
+          <li>Cultos y asistencia</li>
+          <li>Finanzas locales</li>
+          <li>Células</li>
+          <li>Tareas</li>
+          <li>Comités locales</li>
+          <li>Calendario</li>
+          <li>Informes</li>
+          <li>Comunicación</li>
+          <li>Configuración</li>
+        </ol>
+      </div>
+      <div class="menu-card after">
+        <h3>Propuesta</h3>
+        <ol>
+          <li><b>Inicio</b> <small>el Modo rápido es el inicio, no hay dos</small></li>
+          <li><b>Personas</b> <small>con familias, células y comités como grupos de personas</small></li>
+          <li><b>Cultos y agenda</b> <small>asistencia y calendario juntos: es la misma cosa vista por fecha</small></li>
+          <li><b>Dinero</b> <small>entradas, gastos y comprobantes</small></li>
+          <li><b>Informes y tareas</b> <small>lo que hay que entregar, en un solo lugar</small></li>
+        </ol>
+        <p style="color:var(--muted);font-size:.94rem">Los mensajes van dentro del botón de ayuda. La configuración, en el menú del usuario.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">Lo que falta</span>
+      <h2>Para usarlo con datos reales</h2>
+    </div>
+    <ol class="road">
+      <li><span class="phase">Ahora</span><div><strong>Ajustes de uso</strong><p>Hecho: los huecos del informe y la letra más grande en el celular. Falta decidir el menú de 5 secciones.</p></div></li>
+      <li><span class="phase">Paso 2</span><div><strong>Base de datos central y usuarios</strong><p>Que los datos estén en un servidor y no en cada teléfono. Usuarios para pastor, secretaría y tesorería con sus permisos. Sin esto no se deben cargar datos reales.</p></div></li>
+      <li><span class="phase">Paso 3</span><div><strong>App instalable y avisos</strong><p>Ícono en la pantalla del celular, avisos en el teléfono y por WhatsApp: informe pendiente, tarea nueva de un comité, culto sin lista.</p></div></li>
+      <li><span class="phase">Paso 4</span><div><strong>Conexiones</strong><p>Calendario de Google para las actividades nacionales y un botón «Reportar un problema» que mande el error con una captura.</p></div></li>
+    </ol>
+  </section>
+
+  <footer>Preparado para conversar con el pastor encargado. Los datos de Maldonado, Salto y Melo que aparecen en la app son ficticios.</footer>
+</div>

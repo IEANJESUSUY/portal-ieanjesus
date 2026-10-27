@@ -1,0 +1,216 @@
+/*
+ * Informe con la planilla oficial de la Secretaría Nacional (IEANJESÚS Uruguay).
+ * Todo se mide en cqw (porcentaje del ancho de la hoja): la página se ve igual
+ * en la computadora, en el celular (en miniatura) y al imprimir en A4.
+ */
+.ofi-page {
+  --ofi-navy: #0b1f4f;
+  --ofi-navy-2: #12306e;
+  --ofi-box: #0d3a68;
+  --ofi-ink: #111827;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: 210 / 297;
+  min-height: 0;
+  padding: 0 !important;
+  overflow: visible; /* si el texto es largo, la hoja crece en lugar de cortarlo */
+  background: #fff;
+  color: var(--ofi-ink);
+  font-family: "Poppins", "Segoe UI", Arial, sans-serif;
+}
+.ofi-page.ofi-activity { padding-top: 6cqw !important; }
+
+/* Franja superior */
+.ofi-band {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4cqw;
+  height: 22cqw;
+  padding: 5.5cqw 10cqw 0;
+  overflow: hidden;
+  background: linear-gradient(100deg, var(--ofi-navy), var(--ofi-navy-2));
+  clip-path: polygon(0 0, 100% 0, 100% 72%, 0 100%);
+  color: #fff;
+}
+.ofi-band-words {
+  position: absolute;
+  inset: -1cqw 0 0 -3cqw;
+  display: grid;
+  pointer-events: none;
+  color: rgba(255, 255, 255, .055);
+  font-family: "Poppins", "Arial Black", Arial, sans-serif;
+  font-size: 5.6cqw;
+  font-weight: 800;
+  line-height: .95;
+  white-space: nowrap;
+}
+.ofi-band-words span:nth-child(even) { margin-left: -4cqw; }
+.ofi-band img {
+  position: relative;
+  width: 20cqw;
+  height: auto;
+  border-radius: .4cqw;
+}
+.ofi-band p {
+  position: relative;
+  margin: 1cqw 0 0;
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 1.45cqw;
+  line-height: 1.15;
+  text-align: right;
+}
+
+.ofi-body {
+  display: grid;
+  gap: 2.4cqw;
+  padding: 4cqw 10cqw 3cqw;
+}
+.ofi-title {
+  margin: 0;
+  color: #000;
+  font-size: 3.1cqw;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: .02em;
+  text-align: center;
+}
+.ofi-title b { font-weight: 800; }
+.ofi-title.small { margin-top: 1.5cqw; font-size: 2.9cqw; }
+.ofi-title.light { margin-bottom: 1cqw; font-size: 3cqw; }
+
+/* Lugar y fecha */
+.ofi-place {
+  display: grid;
+  grid-template-columns: 13cqw minmax(0, 1fr) 11.5cqw minmax(0, 1fr);
+  gap: 1.5cqw;
+}
+.ofi-tag, .ofi-value {
+  display: flex;
+  align-items: center;
+  min-height: 4.6cqw;
+  padding: 0 1.8cqw;
+  border: .35cqw solid var(--ofi-box);
+  font-size: 1.85cqw;
+}
+.ofi-tag { justify-content: center; font-weight: 700; }
+
+/* Mes, congregación, pastor, licencia */
+.ofi-rows { display: grid; gap: 1.5cqw; margin: 0; }
+.ofi-rows div { display: grid; grid-template-columns: 21.5cqw minmax(0, 1fr); gap: 1.5cqw; }
+.ofi-rows dt, .ofi-rows dd {
+  display: flex;
+  align-items: center;
+  min-height: 4.8cqw;
+  margin: 0;
+  padding: 0 3cqw;
+  font-size: 1.85cqw;
+}
+.ofi-rows dt { background: var(--ofi-box); color: #fff; font-weight: 700; }
+.ofi-rows dd { border: .35cqw solid var(--ofi-box); }
+
+/* Cantidades */
+.ofi-counts { display: grid; gap: 1.3cqw; margin: 1.5cqw 0 0; padding: 0; list-style: none; }
+.ofi-counts li { display: flex; align-items: center; justify-content: space-between; gap: 3cqw; font-size: 2.1cqw; }
+.ofi-counts strong {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 11cqw;
+  height: 4.8cqw;
+  border: .35cqw solid var(--ofi-box);
+  font-size: 2.1cqw;
+  font-weight: 400;
+}
+
+/* Promedios */
+.ofi-averages { width: 100%; border-collapse: separate; border-spacing: 1.5cqw 1.2cqw; margin: 0 -1.5cqw; table-layout: fixed; }
+.ofi-averages th, .ofi-averages td { height: 4.6cqw; padding: 0; text-align: center; font-size: 2.1cqw; }
+.ofi-averages th { background: var(--ofi-box); color: #fff; font-size: 1.85cqw; font-weight: 800; }
+.ofi-averages td { border: .35cqw solid var(--ofi-box); font-size: 2.3cqw; }
+
+/* Actividades destacadas */
+.ofi-activity-head { display: grid; grid-template-columns: 7cqw minmax(0, 1fr); gap: 1.4cqw; }
+.ofi-activity-head span, .ofi-activity-head h3 {
+  display: flex;
+  align-items: center;
+  min-height: 7.2cqw;
+  margin: 0;
+  background: var(--ofi-box);
+  color: #fff;
+  font-size: 1.95cqw;
+  font-weight: 800;
+}
+.ofi-activity-head span { justify-content: center; }
+.ofi-activity-head h3 { padding: 1cqw 1.6cqw; line-height: 1.2; }
+.ofi-activity-text {
+  min-height: 18cqw;
+  margin: 0;
+  padding: 3cqw 1.6cqw;
+  border: .3cqw solid var(--ofi-box);
+  font-size: 1.95cqw;
+  line-height: 1.45;
+  text-align: justify;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ofi-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 2cqw; margin-top: -1.4cqw; }
+.ofi-photos img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.ofi-photos.n1 { grid-template-columns: 1fr; }
+.ofi-photos.n1 img { aspect-ratio: 16 / 10; }
+.ofi-photos.n3 img:first-child { grid-column: 1 / -1; aspect-ratio: 16 / 8; }
+
+/* Firmas y pie */
+.ofi-closing { margin-top: auto; }
+.ofi-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8cqw;
+  padding: 6cqw 14cqw 4cqw;
+  font-family: "Times New Roman", Georgia, serif;
+  text-align: center;
+}
+.ofi-signatures div { display: grid; gap: .3cqw; }
+.ofi-signatures i { display: block; height: 7cqw; border-bottom: .2cqw solid #333; margin-bottom: 1cqw; }
+.ofi-signatures strong { font-size: 1.85cqw; }
+.ofi-signatures span { font-size: 1.85cqw; letter-spacing: .02em; }
+.ofi-foot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 3cqw;
+  height: 13cqw;
+  padding: 0 10cqw 2.6cqw;
+  overflow: hidden;
+  background: linear-gradient(100deg, var(--ofi-navy), var(--ofi-navy-2));
+  clip-path: polygon(0 45%, 100% 0, 100% 100%, 0 100%);
+  color: #fff;
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 1.45cqw;
+  line-height: 1.5;
+}
+.ofi-foot > span { position: relative; }
+.ofi-foot > span:last-child { text-align: right; }
+
+/* En el editor, la hoja va sobre el fondo gris como las demás páginas */
+.studio-canvas .ofi-page { box-shadow: 0 6px 25px #17344b1f; }
+
+@media print {
+  @page ofi { size: A4 portrait; margin: 0; }
+  #report-print-root .paper-page.ofi-page {
+    page: ofi;
+    display: flex !important;
+    width: 210mm !important;
+    min-height: 296mm !important; /* un poco menos que A4 para no generar una hoja en blanco */
+    height: auto !important;
+    aspect-ratio: auto;
+    overflow: visible !important;
+  }
+  #report-print-root .paper-page.ofi-page.ofi-activity { padding-top: 12.6mm !important; }
+  #report-print-root .ofi-photos { display: grid !important; }
+  #report-print-root .ofi-photos img { max-height: none !important; object-fit: cover !important; }
+  #report-print-root .ofi-band img { width: 20cqw !important; height: auto !important; }
+}

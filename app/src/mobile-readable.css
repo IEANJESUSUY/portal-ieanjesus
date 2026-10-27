@@ -1,0 +1,87 @@
+/*
+ * Letra legible en el celular para el sistema completo.
+ * Los pastores leen desde el teléfono: nada de texto de lectura por debajo de 14px,
+ * y lo secundario (fechas, etiquetas, insignias) no baja de 12–13px.
+ * El Modo rápido tiene sus propios tamaños y queda afuera.
+ */
+@media (max-width: 700px) {
+  /* Texto de lectura */
+  .people-page.crm:not(.quick-mode-page) :is(p, li, label, summary, td, th, dd, dt),
+  .people-page.crm:not(.quick-mode-page) :is(td, th) :is(strong, span, div, b, button, a),
+  .document-studio :is(p, li, label, td, th),
+  .document-studio .paper-help {
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  /* Texto secundario: fechas, aclaraciones, detalle de una fila */
+  .people-page.crm:not(.quick-mode-page) :is(small, td small, .channel-copy small, .chart-legend-item span, .chart-card p, .section-footnote, .quiet-empty),
+  .document-studio small {
+    font-size: 13.5px;
+  }
+
+  /* Títulos de tarjetas y valores destacados que estaban chicos */
+  .people-page.crm:not(.quick-mode-page) :is(.channel-copy strong, .movement-row strong, .statement-heading strong, .user-chip-info strong, li > strong, li > b, .task-card-content p) {
+    font-size: 15px;
+  }
+
+  /* Etiquetas en mayúscula: pueden ser algo menores, pero legibles */
+  .people-page.crm:not(.quick-mode-page) .eyebrow,
+  .document-studio .eyebrow {
+    font-size: 12px;
+    letter-spacing: .08em;
+  }
+
+  /* Insignias y estados */
+  .people-page.crm:not(.quick-mode-page) :is(.count-pill, .status-pill, .status-badge, .committee-pill, .person-chip-badge, .direction-badge, .birthday-tag, .cat-tag, .cell-rank-number) {
+    font-size: 13px;
+  }
+
+  /* Botones: los de acción deben leerse como botones */
+  .people-page.crm:not(.quick-mode-page) :is(.primary-action, .secondary-action, .task-action, .schedule-chip, .report-view-switcher button, .report-filter-bar button, .directory-show-more),
+  .document-studio :is(.primary-action, .secondary-action) {
+    font-size: 15px;
+  }
+  .people-page.crm:not(.quick-mode-page) .schedule-chip :is(span, small) { font-size: 14px; }
+
+  /* Filtros y formularios del sistema completo */
+  .people-page.crm:not(.quick-mode-page) :is(input, select, textarea),
+  .document-studio :is(input, select, textarea) {
+    font-size: 16px; /* 16px también evita que el iPhone haga zoom al tocar el campo */
+  }
+
+  /* Aviso de demostración */
+  .people-page.crm:not(.quick-mode-page) .demo-note,
+  .people-page.crm:not(.quick-mode-page) .demo-note strong {
+    font-size: 13px !important; /* workspace.css lo fija con !important */
+  }
+  .people-page.crm:not(.quick-mode-page) .report-history-row button { font-size: 14px !important; min-height: 44px !important; }
+  .people-page.crm:not(.quick-mode-page) .report-history-row :is(strong, small) { font-size: 14px; }
+
+  /* Calendario: números de los días */
+  .people-page.crm:not(.quick-mode-page) :is(.calendar-day-num, .mini-calendar-day span) { font-size: 14px; }
+  .people-page.crm:not(.quick-mode-page) :is(.calendar-weekday-cell, .mini-calendar-weekdays span) { font-size: 12px; }
+  .people-page.crm:not(.quick-mode-page) .calendar-day-count { font-size: 11px; }
+
+  /* Menú lateral */
+  .sidebar .nav-item span { font-size: 16px; }
+  .sidebar .user-chip-info strong { font-size: 14px; }
+  .sidebar .user-chip-info span { font-size: 12.5px; }
+
+  /* Editor de informes: las páginas del documento se acomodan en renglones, sin barra de desplazamiento */
+  .document-studio .studio-pages {
+    flex-wrap: wrap;
+    max-height: none;
+    overflow: visible;
+  }
+  .document-studio .studio-pages button {
+    max-width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+  .document-studio .studio-pages button span { font-size: 12px; }
+  .document-studio .studio-toolbar h2 { font-size: 1.35rem; }
+  .document-studio .studio-toolbar small { font-size: 13.5px; }
+  .document-studio .report-metric-label { font-size: 14px; }
+}
