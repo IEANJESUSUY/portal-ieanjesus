@@ -13,10 +13,10 @@ import {
   RefreshCw,
   Settings,
   Sparkles,
-  UsersRound,
-  Zap
+  UsersRound
 } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
+import { groupForPath, isLocalWorkspace, localGroups } from '../navigation'
 
 export type SidebarProps = {
   workspace?: { id: string; type: string; name: string; role?: string } | null
@@ -28,6 +28,7 @@ export type SidebarProps = {
 
 export function Sidebar({ workspace, user, onSwitchWorkspace, onOpenMenu, onLogout }: SidebarProps) {
   const type = workspace?.type || 'national_admin'
+  const location = useLocation()
 
   let items = [
     { to: '/', label: 'Inicio', icon: LayoutDashboard },
@@ -64,36 +65,24 @@ export function Sidebar({ workspace, user, onSwitchWorkspace, onOpenMenu, onLogo
       { to: '/informes', label: 'Informes', icon: BarChart3 },
       { to: '/comunicacion', label: 'Comunicación', icon: MessageSquare }
     ]
-  } else if (type === 'preaching_place') {
-    items = [
-      { to: '/', label: 'Inicio', icon: LayoutDashboard },
-      { to: '/personas', label: 'Personas vinculadas', icon: UsersRound },
-      { to: '/cultos', label: 'Cultos y asistencia', icon: ClipboardCheck },
-      { to: '/finanzas', label: 'Ofrendas', icon: CircleDollarSign },
-      { to: '/tareas', label: 'Tareas y actividades', icon: Sparkles },
-      { to: '/comites', label: 'Comités locales', icon: Network },
-      { to: '/calendario', label: 'Calendario', icon: CalendarDays },
-      { to: '/informes', label: 'Informes', icon: BarChart3 },
-      { to: '/comunicacion', label: 'Comunicación', icon: MessageSquare }
-    ]
-  } else if (type === 'church') {
-    items = [
-      { to: '/', label: 'Inicio', icon: LayoutDashboard },
-      { to: '/personas', label: 'Personas y familias', icon: UsersRound },
-      { to: '/cultos', label: 'Cultos y asistencia', icon: ClipboardCheck },
-      { to: '/finanzas', label: 'Finanzas locales', icon: CircleDollarSign },
-      { to: '/celulas', label: 'Células', icon: Boxes },
-      { to: '/tareas', label: 'Tareas', icon: Sparkles },
-      { to: '/comites', label: 'Comités locales', icon: Network },
-      { to: '/calendario', label: 'Calendario', icon: CalendarDays },
-      { to: '/informes', label: 'Informes', icon: BarChart3 },
-      { to: '/comunicacion', label: 'Comunicación', icon: MessageSquare }
-    ]
+  } else if (isLocalWorkspace(type)) {
+    const icons: Record<string, typeof LayoutDashboard> = {
+      '/': LayoutDashboard, '/personas': UsersRound, '/cultos': ClipboardCheck, '/finanzas': CircleDollarSign, '/informes': BarChart3
+    }
+    items = localGroups(type).map(group => ({ to: group.to, label: group.label, icon: icons[group.to] }))
   }
 
-  const primaryMobileRoutes = type === 'national_committee' ? ['/', '/comites', '/finanzas', '/informes'] : type === 'national_admin' ? ['/', '/personas', '/finanzas', '/informes'] : ['/', '/cultos', '/finanzas', '/informes']
+  // En las congregaciones, una sección queda marcada en cualquiera de sus pestañas.
+  const activeGroup = isLocalWorkspace(type) ? groupForPath(location.pathname, type)?.to : undefined
+  const itemClass = (to: string, base: string) => ({ isActive }: { isActive: boolean }) =>
+    `${base}${(activeGroup ? activeGroup === to : isActive) ? ' active' : ''}`
+
+  // Las congregaciones tienen sus cinco secciones abajo; el resto (configuración, cambiar de espacio) queda en ☰.
+  const primaryMobileRoutes = type === 'national_committee' ? ['/', '/comites', '/finanzas', '/informes'] : type === 'national_admin' ? ['/', '/personas', '/finanzas', '/informes'] : localGroups(type).map(group => group.to)
   const mobileItems = primaryMobileRoutes.map(route => items.find(item => item.to === route)).filter(Boolean) as typeof items
-  const shortLabel: Record<string, string> = { '/': 'Inicio', '/personas': 'Personas', '/cultos': 'Asistencia', '/finanzas': 'Finanzas', '/informes': 'Informes', '/comites': type === 'national_committee' ? 'Actividades' : 'Comités' }
+  const shortLabel: Record<string, string> = isLocalWorkspace(type)
+    ? Object.fromEntries(localGroups(type).map(group => [group.to, group.short]))
+    : { '/': 'Inicio', '/personas': 'Personas', '/cultos': 'Asistencia', '/finanzas': 'Finanzas', '/informes': 'Informes', '/comites': type === 'national_committee' ? 'Actividades' : 'Comités' }
 
   return (
     <>
@@ -112,7 +101,7 @@ export function Sidebar({ workspace, user, onSwitchWorkspace, onOpenMenu, onLogo
             key={to}
             to={to}
             end={to === '/'}
-            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+            className={itemClass(to, 'nav-item')}
           >
             <Icon size={19} strokeWidth={1.8} />
             <span>{label}</span>
@@ -121,16 +110,6 @@ export function Sidebar({ workspace, user, onSwitchWorkspace, onOpenMenu, onLogo
       </nav>
 
       <div className="sidebar-bottom">
-        {['church', 'preaching_place'].includes(type) && (
-          <button
-            type="button"
-            className="nav-item quick-mode-sidebar"
-            onClick={() => window.dispatchEvent(new Event('portal:quick-mode'))}
-          >
-            <Zap size={19} />
-            <span>Modo rápido</span>
-          </button>
-        )}
         <NavLink to="/configuracion" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
           <Settings size={19} />
           <span>Configuración</span>
@@ -166,14 +145,14 @@ export function Sidebar({ workspace, user, onSwitchWorkspace, onOpenMenu, onLogo
           key={`mobile-${to}`}
           to={to}
           end={to === '/'}
-          className={({ isActive }) => `mobile-bottom-item${isActive ? ' active' : ''}`}
-          // En el celular, "Inicio" de una congregación vuelve al Modo rápido.
-          onClick={to === '/' && ['church', 'preaching_place'].includes(type) ? () => window.dispatchEvent(new Event('portal:quick-mode')) : undefined}
+          className={itemClass(to, 'mobile-bottom-item')}
         >
           <Icon size={19} strokeWidth={1.9} /><span>{shortLabel[to] || label}</span>
         </NavLink>
       ))}
-      <button type="button" className="mobile-bottom-item" onClick={onOpenMenu}><Menu size={19} /><span>Más</span></button>
+      {!isLocalWorkspace(type) && (
+        <button type="button" className="mobile-bottom-item" onClick={onOpenMenu}><Menu size={19} /><span>Más</span></button>
+      )}
     </nav>
     </>
   )

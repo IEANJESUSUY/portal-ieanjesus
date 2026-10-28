@@ -393,3 +393,70 @@
 @media (prefers-reduced-motion: reduce) {
   .qm *, .qm *::before, .qm *::after, .qm-tutorial, .qm-tutorial *, .saved-toast { animation: none !important; transition: none !important; }
 }
+
+/* --- Inicio dentro del menú: la barra de abajo queda visible, así que los botones fijos suben --- */
+@media (max-width: 900px) {
+  .qm-sticky { bottom: calc(66px + env(safe-area-inset-bottom)); }
+}
+
+/* Pestañas dentro de una sección del menú */
+.section-tabs {
+  display: flex; gap: 6px; margin: 0 0 18px; padding: 5px; overflow-x: auto;
+  border: 1px solid var(--line); border-radius: 16px; background: #fff; scrollbar-width: none;
+}
+.section-tabs::-webkit-scrollbar { display: none; }
+.section-tab {
+  flex: 1 0 auto; display: grid; place-items: center; min-height: 44px; padding: 0 16px; border-radius: 12px;
+  color: var(--muted); font-weight: 700; text-decoration: none; white-space: nowrap; transition: background .15s ease, color .15s ease;
+}
+.section-tab:hover { background: var(--qm-tile); color: var(--qm-navy); }
+.section-tab.active { background: var(--qm-navy); color: #fff; }
+@media (max-width: 700px) { .section-tab { font-size: 15px; } }
+
+.people-page.crm .preaching-banner { display: block; margin: 0 0 14px; padding: 10px 14px; font-size: .95rem; color: #6b4a1e; }
+
+/* Estado de un pedido */
+.qm-status { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .82rem; font-weight: 800; }
+.qm-status.open { background: #fff4d6; color: #7a5a00; }
+.qm-status.warn { background: #fdecea; color: #a12a1b; }
+.qm-status.sent { background: #e8eef9; color: var(--qm-navy); }
+.qm-status.ok { background: #e3f4e9; color: #23613a; }
+
+.qm-request-ask { display: grid; gap: 8px; justify-items: start; padding: 16px; border: 1px solid #ecd9a2; border-left: 5px solid var(--qm-gold); border-radius: 16px; background: #fffbef; }
+.qm-request-ask strong { color: var(--qm-navy); }
+.qm-request-ask p { margin: 0; color: var(--ink); line-height: 1.5; }
+.qm-choice-list.compact .qm-choice { min-height: 60px; padding: 10px 14px; box-shadow: none; }
+.qm-choice.selected { border-color: var(--qm-green); background: #eef8f1; }
+.qm-choice.selected > svg { color: var(--qm-green); }
+.qm-request-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.qm-request-photos figure { position: relative; margin: 0; }
+.qm-request-photos img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; }
+.qm-request-photos button { position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; }
+
+/* Página de pedidos de los comités */
+.local-requests { display: grid; gap: 18px; }
+.local-requests .workspace-title p { margin: 6px 0 0; color: var(--muted); }
+.request-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.request-card { display: grid; gap: 10px; align-content: start; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: #fff; }
+.request-card.open, .request-card.warn { border-left: 5px solid var(--qm-gold); }
+.request-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: .9rem; font-weight: 700; }
+.request-card h3 { margin: 0; color: var(--qm-navy); font-size: 1.15rem; }
+.request-card p { margin: 0; color: var(--ink); line-height: 1.5; }
+.request-card small { font-weight: 700; color: var(--muted); }
+.request-card small.soon { color: #8a6100; }
+.request-card small.late { color: #a12a1b; }
+.request-card button { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+.request-history summary { cursor: pointer; padding: 10px 0; font-weight: 700; color: var(--qm-navy); }
+.request-review-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.request-review-photos img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; }
+
+.help-chat-footer .help-chat-problem { color: #8a3b12; }
+/* Informes: en la congregación, el análisis del período queda plegado debajo de los informes */
+.report-analysis { margin-top: 24px; }
+.report-analysis > summary {
+  display: flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 18px; cursor: pointer; list-style: none;
+  border: 1.5px dashed #c3d0e3; border-radius: 16px; background: #fff; color: var(--qm-navy); font-weight: 800;
+}
+.report-analysis > summary::-webkit-details-marker { display: none; }
+.report-analysis[open] > summary { margin-bottom: 18px; }
+.report-analysis.always-open > summary { display: none; }

@@ -461,7 +461,6 @@ button:active, a:active { transform: translateY(1px); }
   .communication-hub > .page-title-row h2, .people-page.crm > .report-center-header h2,
   .people-page.crm .home-workspace .workspace-title h2 { font-size: clamp(1.55rem, 7vw, 2.1rem); }
   .help-chat { right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); gap: 9px; }
-  .quick-mode-active .help-chat { position: static; width: fit-content; margin: 14px 16px 18px auto; }
   .help-chat-launcher { width: 48px; min-height: 48px; padding: 0; border-radius: 50%; }
   .help-chat-launcher span { display: none; }
   .help-chat-panel { width: min(420px, calc(100vw - 24px)); height: min(68dvh, 590px); min-height: 390px; border-radius: 17px; }

@@ -38,11 +38,22 @@ import {
 import { NATIONAL_COMMITTEES } from '../../shared/catalog.mjs'
 
 type SaveRecord = (collection: string, row: Row) => Promise<any>
-type Screen = 'home' | 'attendance' | 'money' | 'person' | 'report' | 'calendar'
+type Screen = 'home' | 'attendance' | 'money' | 'person' | 'report' | 'calendar' | 'requests'
 
-// El chat de ayuda abre un paso del Modo rápido con este evento.
+// El chat de ayuda y otras pantallas abren un paso del Inicio con este evento.
 export const QUICK_FLOW_EVENT = 'portal:quick-flow'
+const PENDING_FLOW_KEY = 'portal.quick-flow-pendiente'
 const TUTORIAL_KEY = 'portal.quick-tutorial-visto'
+
+// Lleva al Inicio y abre un paso ("money", "pedido:<id>"…). Si el Inicio todavía no está
+// en pantalla, el paso queda anotado y se abre apenas aparece.
+export function requestQuickFlow(flow: string, navigate: (to: string) => void) {
+  try { window.sessionStorage.setItem(PENDING_FLOW_KEY, flow) } catch { /* sin almacenamiento: solo el evento */ }
+  navigate('/')
+  window.dispatchEvent(new CustomEvent(QUICK_FLOW_EVENT, { detail: flow }))
+}
+
+const OPEN_REQUEST = ['Pendiente', 'Iniciada', 'Observada']
 
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 
@@ -95,23 +106,21 @@ export function QuickMode({
   state,
   scope,
   workspaceName,
-  pendingTasks,
+  assignments,
   save,
-  onOpenTasks,
-  onOpenFullReport,
-  onFullMode
+  onOpenFullReport
 }: {
   state: State
   scope: string
   workspaceName: string
-  pendingTasks: number
+  assignments: Row[]
   save: SaveRecord
-  onOpenTasks: () => void
   onOpenFullReport: () => void
-  onFullMode: () => void
 }) {
   const [screen, setScreen] = useState<Screen>('home')
   const [attendanceStart, setAttendanceStart] = useState<string>('')
+  const [requestId, setRequestId] = useState('')
+  const pendingRequests = assignments.filter(a => OPEN_REQUEST.includes(a.status || 'Pendiente'))
   const [tutorialOpen, setTutorialOpen] = useState(() => {
     try { return !window.localStorage.getItem(TUTORIAL_KEY) } catch { return false }
   })
@@ -119,6 +128,7 @@ export function QuickMode({
   const goHome = () => {
     setScreen('home')
     setAttendanceStart('')
+    setRequestId('')
     window.scrollTo({ top: 0 })
   }
   const open = (next: Screen) => {
@@ -133,20 +143,44 @@ export function QuickMode({
   }
 
   useEffect(() => {
-    const onFlow = (event: Event) => {
-      const flow = (event as CustomEvent<string>).detail
+    const run = (flow: string) => {
+      try { window.sessionStorage.removeItem(PENDING_FLOW_KEY) } catch { /* nada que limpiar */ }
       if (flow === 'tutorial') setTutorialOpen(true)
-      else if (['attendance', 'money', 'person', 'report', 'calendar'].includes(flow)) {
+      else if (flow.startsWith('pedido:')) {
+        setRequestId(flow.slice(7))
+        open('requests')
+      } else if (['attendance', 'money', 'person', 'report', 'calendar', 'requests'].includes(flow)) {
         setAttendanceStart('')
+        setRequestId('')
         open(flow as Screen)
       }
     }
+    let pending = ''
+    try { pending = window.sessionStorage.getItem(PENDING_FLOW_KEY) || '' } catch { /* sin almacenamiento */ }
+    if (pending) run(pending)
+    const onFlow = (event: Event) => run((event as CustomEvent<string>).detail)
     window.addEventListener(QUICK_FLOW_EVENT, onFlow)
     return () => window.removeEventListener(QUICK_FLOW_EVENT, onFlow)
   }, [])
 
   const tutorial = tutorialOpen ? <QuickTutorial onClose={closeTutorial} /> : null
 
+  if (screen === 'requests') {
+    return (
+      <>
+        {tutorial}
+        <RequestsFlow
+          key={requestId || 'lista'}
+          state={state}
+          belongs={belongs}
+          assignments={assignments}
+          initialId={requestId}
+          save={save}
+          onExit={goHome}
+        />
+      </>
+    )
+  }
   if (screen === 'calendar') {
     return <>{tutorial}<CalendarFlow state={state} scope={scope} belongs={belongs} save={save} onExit={goHome} /></>
   }
@@ -188,7 +222,13 @@ export function QuickMode({
       }
     })),
     ...(reportMissing ? [{ key: 'informe', text: `Falta enviar el informe de ${monthName(lastMonth)}`, action: () => open('report') }] : []),
-    ...(pendingTasks ? [{ key: 'tareas', text: `${plural(pendingTasks, 'tarea', 'tareas')} de comités para completar`, action: onOpenTasks }] : [])
+    ...(pendingRequests.length
+      ? [{
+          key: 'pedidos',
+          text: pendingRequests.length === 1 ? 'Un comité te pidió algo' : `Los comités te pidieron ${pendingRequests.length} cosas`,
+          action: () => open('requests')
+        }]
+      : [])
   ]
 
   const upcoming = upcomingEvents(state, belongs).slice(0, 3)
@@ -283,9 +323,6 @@ export function QuickMode({
         <button type="button" className="qm-full-link" onClick={() => setTutorialOpen(true)}>
           <HelpCircle size={16} /> ¿Cómo se usa?
         </button>
-        <button type="button" className="qm-full-link" onClick={onFullMode}>
-          <LayoutGrid size={16} /> Abrir el sistema completo
-        </button>
       </div>
     </section>
   )
@@ -298,6 +335,7 @@ const TUTORIAL_STEPS = [
   { icon: ClipboardList, title: 'Pasar lista', text: 'Después del culto tocá «Pasar lista», elegí el culto y tocá el nombre de cada persona que vino. Al final, «Listo».' },
   { icon: Wallet, title: 'Anotar dinero', text: 'Tocá «Anotar dinero», decí si entró o salió plata, cuánto y de qué. Revisás y guardás.' },
   { icon: FileText, title: 'Informe del mes', text: 'Los números se completan solos con lo que anotaste. Vos agregás las actividades del mes y tocás «Enviar informe». Nada de Canva.' },
+  { icon: LayoutGrid, title: 'El menú', text: 'Abajo tenés todo lo demás: Personas, Cultos, Dinero e Informes. «Inicio» siempre te trae de vuelta a esta pantalla.' },
   { icon: MessageCircle, title: 'Si te perdés', text: 'Tocá el botón verde de ayuda: te explica y te lleva al paso. Siempre podés volver con «Volver».' }
 ]
 
@@ -1157,6 +1195,295 @@ function PersonFlow({
           <Check size={22} /> {busy ? 'Guardando…' : 'Guardar'}
         </button>
       </form>
+    </section>
+  )
+}
+
+// --- 6. Pedidos de los comités ---
+// El comité pide algo (por ejemplo, el informe del culto misionero). Si la iglesia ya lo anotó
+// —lista del culto y ofrenda marcada para ese comité—, la respuesta viene completa y solo se confirma.
+
+const committeeName = (key?: string) =>
+  key === 'nacional' ? 'Administración Nacional' : NATIONAL_COMMITTEES.find((c: { key: string }) => c.key === key)?.name || 'Comité nacional'
+
+function requestStatus(status?: string) {
+  if (status === 'Aprobada') return { text: 'Recibido ✓', tone: 'ok' }
+  if (status === 'Enviada' || status === 'Corregida') return { text: 'Respondido', tone: 'sent' }
+  if (status === 'Observada') return { text: 'Te piden un cambio', tone: 'warn' }
+  return { text: 'Por responder', tone: 'open' }
+}
+
+function RequestsFlow({
+  state,
+  belongs,
+  assignments,
+  initialId,
+  save,
+  onExit
+}: {
+  state: State
+  belongs: (row: Row) => boolean
+  assignments: Row[]
+  initialId: string
+  save: SaveRecord
+  onExit: () => void
+}) {
+  const [selectedId, setSelectedId] = useState(initialId)
+  const selected = assignments.find(a => a.id === selectedId)
+  if (selected) {
+    return (
+      <RequestAnswer
+        assignment={selected}
+        activity={state.nationalActivities.find(a => a.id === selected.activityId)}
+        state={state}
+        belongs={belongs}
+        save={save}
+        onBack={() => (initialId ? onExit() : setSelectedId(''))}
+        onExit={onExit}
+      />
+    )
+  }
+  const sorted = [...assignments].sort((a, b) => Number(OPEN_REQUEST.includes(b.status || 'Pendiente')) - Number(OPEN_REQUEST.includes(a.status || 'Pendiente')))
+  return (
+    <section className="qm qm-flow">
+      <FlowHeader title="Pedidos de los comités" step="Lo que te piden y para cuándo" onBack={onExit} />
+      {sorted.length ? (
+        <div className="qm-choice-list">
+          {sorted.map(a => {
+            const activity = state.nationalActivities.find(x => x.id === a.activityId)
+            const status = requestStatus(a.status)
+            return (
+              <button key={a.id} type="button" className="qm-choice" onClick={() => setSelectedId(a.id)}>
+                <span className="qm-choice-copy">
+                  <small>{committeeName(activity?.committeeKey)}</small>
+                  <strong>{activity?.name || a.name || 'Pedido'}</strong>
+                  <small>
+                    <span className={`qm-status ${status.tone}`}>{status.text}</span>
+                    {activity?.deadline && OPEN_REQUEST.includes(a.status || 'Pendiente') ? ` · para el ${longDate(activity.deadline)}` : ''}
+                  </small>
+                </span>
+                <ArrowRight size={20} aria-hidden="true" />
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="qm-empty">No hay pedidos de los comités por ahora.</p>
+      )}
+    </section>
+  )
+}
+
+function RequestAnswer({
+  assignment,
+  activity,
+  state,
+  belongs,
+  save,
+  onBack,
+  onExit
+}: {
+  assignment: Row
+  activity?: Row
+  state: State
+  belongs: (row: Row) => boolean
+  save: SaveRecord
+  onBack: () => void
+  onExit: () => void
+}) {
+  const committeeKey = activity?.committeeKey || ''
+  const asksAttendance = activity?.requiresAttendance !== 'No'
+  const asksOffering = activity?.requiresOffering !== 'No'
+  // Actividades ya hechas que pueden ser la que pide el comité, la más probable primero.
+  const past = state.events.filter(e => belongs(e) && e.date && e.date <= today())
+  const linked = past.filter(e => e.id === assignment.eventId || (activity && e.activityId === activity.id) || (committeeKey && e.committeeKey === committeeKey))
+  const recent = past.filter(e => e.date >= shiftDays(today(), -45))
+  const options = [...linked, ...recent]
+    .filter((e, i, all) => all.findIndex(x => x.id === e.id) === i)
+    .sort((a, b) => (linked.includes(b) ? 1 : 0) - (linked.includes(a) ? 1 : 0) || String(b.date).localeCompare(String(a.date)))
+    .slice(0, 6)
+  const figuresFor = (event?: Row) => {
+    const list = event ? state.attendance.find(a => a.eventId === event.id) : undefined
+    const offering = event
+      ? state.transactions
+          .filter(t => belongs(t) && t.direction === 'Ingreso' && !isTithe(t) && t.date === event.date &&
+            ((committeeKey && t.committeeKey === committeeKey) || (t.eventId && t.eventId === event.id)))
+          .reduce((s, t) => s + Number(t.amount || 0), 0)
+      : 0
+    return { people: list?.people?.length || 0, visitors: Number(list?.visitors || 0), offering, hasList: Boolean(list) }
+  }
+  const answered = !OPEN_REQUEST.includes(assignment.status || 'Pendiente')
+  const initialEvent = options.find(e => e.id === assignment.eventId) || (answered ? undefined : linked.sort((a, b) => String(b.date).localeCompare(String(a.date)))[0])
+  const [eventId, setEventId] = useState(initialEvent?.id || '')
+  const [date, setDate] = useState(assignment.localDate || initialEvent?.date || today())
+  const start = answered || assignment.status === 'Observada'
+    ? { people: Number(assignment.attendanceCount || 0), visitors: Number(assignment.visitorsCount || 0), offering: Number(assignment.financialData?.reportedOfferingTotal || 0), hasList: false }
+    : figuresFor(initialEvent)
+  const [people, setPeople] = useState(String(start.people || ''))
+  const [visitors, setVisitors] = useState(String(start.visitors || ''))
+  const [offering, setOffering] = useState(start.offering ? String(start.offering) : '')
+  const [description, setDescription] = useState(assignment.description || '')
+  const [photos, setPhotos] = useState<string[]>(assignment.photos || [])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [done, setDone] = useState(false)
+  const chosen = options.find(e => e.id === eventId)
+  const prefilled = chosen ? figuresFor(chosen) : undefined
+  const status = requestStatus(assignment.status)
+
+  function choose(event?: Row) {
+    setEventId(event?.id || '')
+    if (!event) return
+    setDate(event.date)
+    const figures = figuresFor(event)
+    setPeople(figures.people ? String(figures.people) : '')
+    setVisitors(figures.visitors ? String(figures.visitors) : '')
+    setOffering(figures.offering ? String(figures.offering) : '')
+  }
+
+  async function addPhoto(file?: File) {
+    if (!file) return
+    try {
+      const photo = await compressPhoto(file)
+      setPhotos(list => [...list, photo].slice(0, 2))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function send() {
+    setBusy(true)
+    setError('')
+    try {
+      const offeringTotal = asksOffering ? parseAmount(offering || '0') : 0
+      const previous = assignment.financialData || {}
+      await save('activityAssignments', {
+        ...assignment,
+        status: assignment.status === 'Observada' ? 'Corregida' : 'Enviada',
+        localDate: date,
+        eventId,
+        attendanceCount: asksAttendance ? Number(people) || 0 : 0,
+        visitorsCount: asksAttendance ? Number(visitors) || 0 : 0,
+        description: description.trim(),
+        photos,
+        financialData: {
+          ...previous,
+          reportedOfferingTotal: offeringTotal,
+          totalGathered: Math.max(0, offeringTotal - Number(previous.expenses || 0)),
+          status: 'Enviado'
+        },
+        submittedAt: new Date().toISOString()
+      })
+      setDone(true)
+      window.scrollTo({ top: 0 })
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (done) {
+    return (
+      <DoneScreen title="¡Respuesta enviada!" detail={`${committeeName(committeeKey)} ya puede ver lo que mandaste.`}>
+        <button type="button" className="qm-primary" onClick={onExit}>Volver al inicio</button>
+      </DoneScreen>
+    )
+  }
+
+  return (
+    <section className="qm qm-flow">
+      <FlowHeader title={activity?.name || assignment.name || 'Pedido'} step={committeeName(committeeKey)} onBack={onBack} />
+      <div className="qm-request-ask">
+        <span className={`qm-status ${status.tone}`}>{status.text}</span>
+        {activity?.deadline && <strong>Para el {longDate(activity.deadline)}</strong>}
+        <p>{activity?.instructions || activity?.description || 'El comité pide que le cuenten cómo fue esta actividad.'}</p>
+      </div>
+      {assignment.status === 'Observada' && assignment.feedback && (
+        <p className="qm-warning"><strong>El comité te pide:</strong> {assignment.feedback}</p>
+      )}
+      {assignment.status === 'Aprobada' && <p className="qm-note ok"><CheckCircle2 size={18} /> El comité ya recibió y aprobó esta respuesta.</p>}
+
+      <div className="qm-card">
+        <span className="qm-field-label">¿Cuándo lo hicieron?</span>
+        {options.length > 0 && (
+          <div className="qm-choice-list compact">
+            {options.map(e => {
+              const figures = figuresFor(e)
+              return (
+                <button key={e.id} type="button" className={`qm-choice${eventId === e.id ? ' selected' : ''}`} aria-pressed={eventId === e.id} onClick={() => choose(e)}>
+                  <span className="qm-choice-copy">
+                    <strong>{e.name}</strong>
+                    <small>{longDate(e.date).replace(/^./, c => c.toUpperCase())}{figures.hasList ? ` · ${figures.people + figures.visitors} personas` : ''}</small>
+                  </span>
+                  {eventId === e.id && <Check size={20} aria-hidden="true" />}
+                </button>
+              )
+            })}
+          </div>
+        )}
+        <label className="qm-field">
+          <span>{options.length ? 'Otra fecha' : 'Fecha'}</span>
+          <input type="date" max={today()} value={date} onChange={e => { setDate(e.target.value || today()); setEventId('') }} />
+        </label>
+        {prefilled?.hasList && <p className="qm-note ok"><CheckCircle2 size={18} /> Los números salen de la lista que ya pasaste. Revisalos.</p>}
+      </div>
+
+      {(asksAttendance || asksOffering) && (
+        <div className="qm-card">
+          {asksAttendance && (
+            <div className="qm-row">
+              <label className="qm-field">
+                <span>Hermanos</span>
+                <input inputMode="numeric" value={people} onChange={e => setPeople(e.target.value.replace(/\D/g, ''))} placeholder="0" />
+              </label>
+              <label className="qm-field">
+                <span>Visitas</span>
+                <input inputMode="numeric" value={visitors} onChange={e => setVisitors(e.target.value.replace(/\D/g, ''))} placeholder="0" />
+              </label>
+            </div>
+          )}
+          {asksOffering && (
+            <label className="qm-field">
+              <span>Ofrenda reunida ($)</span>
+              <input inputMode="decimal" value={offering} onChange={e => setOffering(e.target.value.replace(/[^\d.,]/g, ''))} placeholder="0" />
+            </label>
+          )}
+        </div>
+      )}
+
+      <div className="qm-card">
+        <label className="qm-field">
+          <span>¿Algo para contar? (opcional)</span>
+          <textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Ej. Fue de bendición, se convirtieron 2 personas." />
+        </label>
+        {photos.length > 0 && (
+          <div className="qm-request-photos">
+            {photos.map((p, i) => (
+              <figure key={i}>
+                <img src={p} alt={`Foto ${i + 1}`} />
+                <button type="button" aria-label={`Quitar foto ${i + 1}`} onClick={() => setPhotos(list => list.filter((_, j) => j !== i))}><X size={16} /></button>
+              </figure>
+            ))}
+          </div>
+        )}
+        {photos.length < 2 && (
+          <label className="qm-photo">
+            <Camera size={20} />
+            <span>Agregar una foto (opcional)</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { void addPhoto(e.target.files?.[0]); e.target.value = '' }} />
+          </label>
+        )}
+      </div>
+
+      {error && <p className="qm-error" role="alert">{error}</p>}
+      {assignment.status !== 'Aprobada' && (
+        <div className="qm-sticky">
+          <button type="button" className="qm-primary big" disabled={busy} onClick={send}>
+            <Check size={22} /> {busy ? 'Enviando…' : answered ? 'Enviar de nuevo' : 'Enviar al comité'}
+          </button>
+        </div>
+      )}
     </section>
   )
 }

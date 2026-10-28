@@ -486,6 +486,27 @@ export function NationalAdminCommitteesView({
                 {Number(reviewingAssignment.visitorsCount || 0)} visitas
               </strong>
             </div>
+            <div className="field-readonly-tag">
+              <span>Fecha en que se hizo</span>
+              <strong>{reviewingAssignment.localDate ? reviewingAssignment.localDate.split('-').reverse().join('/') : 'Sin fecha'}</strong>
+            </div>
+            <div className="field-readonly-tag">
+              <span>Ofrenda informada</span>
+              <strong>{money(Number(reviewingAssignment.financialData?.reportedOfferingTotal || 0))}</strong>
+            </div>
+            {reviewingAssignment.description && (
+              <div className="field-readonly-tag" style={{ gridColumn: '1 / -1' }}>
+                <span>Lo que contó la congregación</span>
+                <strong style={{ fontWeight: 400, whiteSpace: 'pre-wrap' }}>{reviewingAssignment.description}</strong>
+              </div>
+            )}
+            {reviewingAssignment.photos?.length > 0 && (
+              <div className="request-review-photos" style={{ gridColumn: '1 / -1' }}>
+                {reviewingAssignment.photos.map((photo: string, i: number) => (
+                  <img key={i} src={photo} alt={`Foto ${i + 1} enviada por la congregación`} />
+                ))}
+              </div>
+            )}
             <label style={{ gridColumn: '1 / -1' }}>
               <span>Devolución / Observación para la congregación</span>
               <textarea rows={3} value={feedback} onChange={e => setFeedback(e.target.value)} />

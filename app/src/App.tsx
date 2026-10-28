@@ -170,7 +170,10 @@ export default function App() {
           onOpenWorkspacePicker={() => setShowWorkspacePicker(true)}
           onLogout={handleLogout}
         />
-        <HelpChat workspaceName={currentWorkspace?.name || 'Administración Nacional'} />
+        <HelpChat
+          workspaceName={currentWorkspace?.name || 'Administración Nacional'}
+          local={['church', 'preaching_place'].includes(currentWorkspace?.type || '')}
+        />
       </section>
     </div>
   )

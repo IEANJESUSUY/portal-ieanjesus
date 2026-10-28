@@ -531,6 +531,7 @@ export function validateRecord(collection, input, lookup) {
         missionaryServiceOffering: Math.max(0, Number(input.financialData.missionaryServiceOffering) || 0),
         pledges: Math.max(0, Number(input.financialData.pledges) || 0),
         otherAuthorizedIncome: Math.max(0, Number(input.financialData.otherAuthorizedIncome) || 0),
+        reportedOfferingTotal: Math.max(0, Number(input.financialData.reportedOfferingTotal) || 0),
         expenses: Math.max(0, Number(input.financialData.expenses) || 0),
         totalGathered: Math.max(0, Number(input.financialData.totalGathered) || 0),
         totalSent: Math.max(0, Number(input.financialData.totalSent) || 0),

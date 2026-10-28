@@ -46,7 +46,9 @@ import { ReportHub } from './components/ReportStudio'
 import { CalendarModule, CalendarPreviewCard, EventModal } from './components/CalendarModule'
 import { CommunicationHub } from './components/CommunicationHub'
 import { LocalChurchCommitteesView, NationalAdminCommitteesView } from './components/CommitteesModule'
-import { QuickMode } from './components/QuickMode'
+import { QuickMode, requestQuickFlow } from './components/QuickMode'
+import { LocalRequests } from './components/LocalRequests'
+import { SectionTabs } from './components/SectionTabs'
 
 import { type Row, type State, money, today, label, normalizeText, formatDate, plural, committeeLabel, findPossibleDuplicates, lastDateForWeekday, WEEKDAYS, compressPhoto } from './utils'
 type Field = { key: string; label: string; type: string; required: boolean; options: string[] }
@@ -693,7 +695,7 @@ function PersonModal({
         <div className="record-heading">
           <div>
             <span className="eyebrow">{isFriend ? 'Registro de Amigo' : 'Ficha de Persona Vinculada'}</span>
-            <h2>{row.id ? (isFriend ? 'Editar amigo' : 'Editar persona vinculada') : (isFriend ? 'Agregar amigo' : 'Agregar persona vinculada')}</h2>
+            <h2>{row.id ? (isFriend ? 'Editar visita' : 'Editar persona de la iglesia') : (isFriend ? 'Anotar una visita' : 'Anotar persona de la iglesia')}</h2>
             <p style={{ margin: '4px 0 0', fontSize: '.82rem', color: '#63788d' }}>
               {isFriend
                 ? 'Registro rápido para contactos y amigos de la congregación.'
@@ -1652,24 +1654,24 @@ function Directory({
                 to="/familias"
                 style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
               >
-                <Home size={17} /> Familias y domicilios
+                <Home size={17} /> Familias
               </Link>
-              {onOpenMatcher && (
+              {onOpenMatcher && !scope && (
                 <button className="secondary-action" onClick={onOpenMatcher}>
-                  <Search size={17} /> Buscar / deduplicar persona
+                  <Search size={17} /> Buscar personas repetidas
                 </button>
               )}
               <button
                 className="secondary-action"
                 onClick={() => edit('people', { id: '', churchId: scope, status: 'Amigo' })}
               >
-                <UserPlus size={17} /> Agregar amigo
+                <UserPlus size={17} /> Anotar una visita
               </button>
               <button
                 className="primary-action"
                 onClick={() => edit('people', { id: '', churchId: scope, status: 'Persona vinculada' })}
               >
-                <UserCheck size={17} /> Agregar persona vinculada
+                <UserCheck size={17} /> Anotar persona de la iglesia
               </button>
             </>
           )}
@@ -1697,7 +1699,7 @@ function Directory({
                 })
               }
             >
-              <Plus size={17} /> Nuevo movimiento
+              <Plus size={17} /> Anotar dinero
             </button>
           )}
           {collection !== 'people' && collection !== 'transactions' && !committeePeople && (
@@ -1732,14 +1734,19 @@ function Directory({
             <span>Resultado</span>
             <strong>{money(financeIncome - financeExpense)}</strong>
           </div>
-          <div>
-            <span>Por cobrar</span>
-            <strong>{money(financeReceivable)}</strong>
-          </div>
-          <div>
-            <span>Por pagar</span>
-            <strong>{money(financePayable)}</strong>
-          </div>
+          {/* Cuentas por cobrar y por pagar solo aparecen si alguien las usa. */}
+          {financeReceivable > 0 && (
+            <div>
+              <span>Por cobrar</span>
+              <strong>{money(financeReceivable)}</strong>
+            </div>
+          )}
+          {financePayable > 0 && (
+            <div>
+              <span>Por pagar</span>
+              <strong>{money(financePayable)}</strong>
+            </div>
+          )}
         </div>
       )}
 
@@ -1927,7 +1934,9 @@ function Directory({
                       <strong>{label(r)}</strong>
                     </td>
                     <td>
-                      <span className={`person-chip-badge ${statusClass}`}>{normStatus}</span>
+                      <span className={`person-chip-badge ${statusClass}`}>
+                        {normStatus === 'Persona vinculada' ? 'De la iglesia' : normStatus === 'Amigo' ? 'Visita' : normStatus}
+                      </span>
                     </td>
                     <td>{r.phone || '—'}</td>
                     <td>
@@ -3892,6 +3901,8 @@ function Reports({
     ? committeeInfo.name
     : state.churches.find(c => c.id === scope)?.name || 'Administración Nacional'
   const mainChurches = (state.churches || []).filter(c => c.isPreachingPlace !== 'Sí')
+  // En la congregación lo importante es preparar y enviar; el análisis queda plegado.
+  const localView = Boolean(scope) && !committeeKey
 
   return (
     <>
@@ -3997,6 +4008,8 @@ function Reports({
         )
       )}
 
+      <details className={`report-analysis${localView ? '' : ' always-open'}`} open={!localView}>
+        <summary>Ver números y gráficos del período</summary>
       <div className="analytics-heading">
         <span className="eyebrow">Consultar registros</span>
         <h3>Análisis del período</h3>
@@ -4267,6 +4280,7 @@ function Reports({
           </table>
         </div>
       )}
+      </details>
     </>
   )
 }
@@ -6131,18 +6145,9 @@ export default function CRM({
     const timer = window.setTimeout(() => setSavedToast(0), 2600)
     return () => window.clearTimeout(timer)
   }, [savedToast])
-  const quickModeKey = 'portal.quick-mode:' + (currentWorkspace?.id || currentWorkspace?.type || 'inicio')
-  const [quickMode, setQuickMode] = useState(() => {
-    if (typeof window === 'undefined') return false
-    const saved = window.sessionStorage.getItem('portal.quick-mode:' + (currentWorkspace?.id || currentWorkspace?.type || 'inicio'))
-    return saved === null
-      ? ['church', 'preaching_place'].includes(currentWorkspace?.type)
-      : saved === 'quick'
-  })
-  const changeQuickMode = (enabled: boolean) => {
-    window.sessionStorage.setItem(quickModeKey, enabled ? 'quick' : 'full')
-    setQuickMode(enabled)
-  }
+  // En congregaciones y lugares de predicación, el Inicio es el Modo rápido y el menú queda siempre a mano.
+  const isLocalSpace = ['church', 'preaching_place'].includes(currentWorkspace?.type)
+  const quickMode = isLocalSpace && path === '/'
 
   // Lote 5: Formulario de inicio de sesión moderno con mostrar/ocultar contraseña y manejo de errores
   const handledAction = useRef('')
@@ -6179,8 +6184,6 @@ export default function CRM({
     if (!state || !currentUser || handledAction.current === signature) return
 
     handledAction.current = signature
-    // Los atajos (ayuda, buscador) abren formularios del sistema completo.
-    if (quickMode) changeQuickMode(false)
     const workspaceType = currentWorkspace?.type || 'national_admin'
     const localScope = ['church', 'preaching_place'].includes(workspaceType)
       ? resolveWorkspaceId(state.churches, currentWorkspace)
@@ -6222,24 +6225,10 @@ export default function CRM({
 
     navigate(location.pathname, { replace: true })
   }, [location.pathname, location.search, state, currentUser, currentWorkspace, navigate])
-  // Si algo (ayuda, buscador) lleva a otra sección, se muestra el sistema completo.
-  useEffect(() => {
-    if (quickMode && path !== '/') changeQuickMode(false)
-  }, [path])
   useEffect(() => {
     document.documentElement.classList.toggle('quick-mode-active', quickMode)
     return () => document.documentElement.classList.remove('quick-mode-active')
   }, [quickMode])
-  // En congregaciones y lugares de predicación la portada es el Modo rápido.
-  useEffect(() => {
-    if (window.sessionStorage.getItem(quickModeKey) !== null) return
-    setQuickMode(['church', 'preaching_place'].includes(currentWorkspace?.type))
-  }, [currentWorkspace?.type, currentWorkspace?.id, quickModeKey])
-  useEffect(() => {
-    const openQuickMode = () => changeQuickMode(true)
-    window.addEventListener('portal:quick-mode', openQuickMode)
-    return () => window.removeEventListener('portal:quick-mode', openQuickMode)
-  }, [quickModeKey])
 
   async function save(collection: string, record: Row) {
     if (!state) throw new Error('La base local todavía no está disponible.')
@@ -6551,74 +6540,36 @@ export default function CRM({
       return String(actB?.deadline || '').localeCompare(String(actA?.deadline || ''))
     })
 
-  if (quickMode && ['church', 'preaching_place'].includes(wsType)) {
-    return (
-      <main className={`people-page crm quick-mode-page${isDemoMode ? ' demo-mode' : ''}`}>
-        {isDemoMode && (
-          <div className="demo-session-banner" role="status">
-            <strong>Demostración activa</strong>
-            <span>Datos ficticios · los cambios temporales desaparecen al salir.</span>
-          </div>
-        )}
+  return (
+    <main className={`people-page crm${quickMode ? ' quick-mode-page' : ''}${isDemoMode ? ' demo-mode' : ''}`}>
+      <div className="view-mode-strip">
+        <p className="demo-note">
+          {isDemoMode
+            ? <><strong>Demostración activa ·</strong> datos ficticios. Los cambios desaparecen al salir.</>
+            : 'Preparación local · Los cambios se guardan en este dispositivo. El acceso institucional y la base central todavía no están conectados.'}
+        </p>
+      </div>
+
+      {wsType === 'preaching_place' && !quickMode && (
+        <p className="preaching-banner">
+          Lugar de predicación de{' '}
+          <strong>{state.churches.find(c => c.id === currentWorkspace.parentChurchId)?.name || 'la congregación madre'}</strong>
+        </p>
+      )}
+
+      {isLocalSpace && <SectionTabs path={path} wsType={wsType} />}
+
+      {quickMode ? (
         <QuickMode
           key={activeScope}
           state={state}
           scope={activeScope}
           workspaceName={currentWorkspace?.name || 'Congregación'}
-          pendingTasks={localAssignments.filter(a => ['Pendiente', 'Iniciada', 'Observada'].includes(a.status)).length}
+          assignments={localAssignments}
           save={save}
-          onOpenTasks={() => {
-            changeQuickMode(false)
-            navigate('/tareas')
-          }}
-          onOpenFullReport={() => {
-            changeQuickMode(false)
-            navigate('/informes?crear=monthly')
-          }}
-          onFullMode={() => {
-            changeQuickMode(false)
-            navigate('/')
-          }}
+          onOpenFullReport={() => navigate('/informes?crear=monthly')}
         />
-      </main>
-    )
-  }
-
-  return (
-    <main className={`people-page crm${isDemoMode ? ' demo-mode' : ''}`}>
-      <div className="view-mode-strip">
-        <p className="demo-note">
-          {isDemoMode
-            ? <><strong>Demostración activa ·</strong> datos ficticios de los últimos tres meses. Los cambios son temporales y desaparecen al salir.</>
-            : 'Preparación local · Los cambios se guardan en este dispositivo. El acceso institucional y la base central todavía no están conectados.'}
-        </p>
-      </div>
-
-      {/* Banner especial para Lugares de Predicación */}
-      {wsType === 'preaching_place' && (
-        <div className="preaching-banner">
-          <div>
-            <strong>Lugar de Predicación: {currentWorkspace.name}</strong>
-            <p style={{ margin: '2px 0 0', fontSize: '.82rem', color: '#68726a' }}>
-              Dependiente de la congregación madre:{' '}
-              <strong>
-                {state.churches.find(c => c.id === currentWorkspace.parentChurchId)?.name || 'Congregación Madre'}
-              </strong>
-            </p>
-          </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '.85rem', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={consolidatePreaching}
-              onChange={e => setConsolidatePreaching(e.target.checked)}
-            />
-            <span>Ver vista consolidada con congregación madre (sin duplicar registros)</span>
-          </label>
-        </div>
-      )}
-
-      {/* Rutas especializadas para Calendario (Lote 4), Comités (Lotes 1, 2 y 3) y Comunicación (Lote 1) */}
-      {path === '/calendario' ? (
+      ) : path === '/calendario' ? (
         <CalendarModule
           state={state}
           scope={activeScope}
@@ -6660,7 +6611,7 @@ export default function CRM({
             scope={activeScope}
             workspaceName={currentWorkspace?.name || 'Congregación'}
             onEditGroup={row => setEditor({ collection: 'groups', row })}
-            onOpenReturnForm={setReturnFormAssignment}
+            onOpenReturnForm={assignment => requestQuickFlow(`pedido:${assignment.id}`, navigate)}
           />
         )
       ) : wsType === 'national_committee' && path === '/' ? (
@@ -6731,112 +6682,7 @@ export default function CRM({
           canReview={wsType === 'national_admin'}
         />
       ) : path === '/tareas' ? (
-        <>
-          <div className="workspace-title">
-            <div>
-              <span className="eyebrow">Entregas y actividades</span>
-              <h2>Tareas de la congregación</h2>
-            </div>
-            <Link className="secondary-action" to="/informes">
-              Entregar un informe
-            </Link>
-          </div>
-          <section className="local-task-section">
-            <div className="section-heading local-heading">
-              <div>
-                <span className="eyebrow">Agenda nacional</span>
-                <h3>Actividades para esta congregación</h3>
-                <p>Fechas, entregas e informes solicitados por los comités nacionales y la Junta Nacional.</p>
-              </div>
-              <div className="local-task-summary">
-                <div>
-                  <strong>
-                    {localAssignments.filter(a => ['Pendiente', 'Iniciada', 'Observada'].includes(a.status)).length}
-                  </strong>
-                  <span>por completar</span>
-                </div>
-                <div>
-                  <strong>
-                    {localAssignments.filter(a => ['Enviada', 'Corregida'].includes(a.status)).length}
-                  </strong>
-                  <span>en revisión</span>
-                </div>
-                <div>
-                  <strong>{localAssignments.filter(a => a.status === 'Aprobada').length}</strong>
-                  <span>aprobadas</span>
-                </div>
-              </div>
-            </div>
-            <div className="local-task-grid">
-              {localAssignments.map(la => {
-                const act = state.nationalActivities.find(a => a.id === la.activityId)
-                const comName =
-                  act?.committeeKey === 'nacional'
-                    ? 'Administración Nacional'
-                    : NATIONAL_COMMITTEES.find(c => c.key === act?.committeeKey)?.name || 'Comité Nacional'
-                const st = String(la.status || 'Pendiente').toLowerCase()
-                const deadline = act?.deadline ? new Date(`${act.deadline}T12:00:00`) : null
-                const daysLeft = deadline
-                  ? Math.ceil((deadline.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000)
-                  : null
-                return (
-                  <article className={`local-task-card ${st}`} key={la.id}>
-                    <div className="task-card-head">
-                      <span className="committee-pill">{comName}</span>
-                      <span className={`status-badge ${st}`}>{la.status}</span>
-                    </div>
-                    <div className="task-card-content">
-                      <h4>{act?.name || la.name}</h4>
-                      <p>{act?.instructions || act?.description || 'Actividad nacional asignada a la congregación.'}</p>
-                    </div>
-                    <div className="task-card-details">
-                      <div>
-                        <span>Fecha de la actividad</span>
-                        <strong>
-                          {formatDate(la.localDate || (act?.dateMode === 'Fecha nacional común' ? act?.date : '')) === '—' ? 'Por definir' : formatDate(la.localDate || (act?.dateMode === 'Fecha nacional común' ? act?.date : ''))}
-                        </strong>
-                      </div>
-                      <div>
-                        <span>Entrega hasta</span>
-                        <strong>{act?.deadline ? formatDate(act.deadline) : 'Sin fecha'}</strong>
-                      </div>
-                    </div>
-                    {daysLeft !== null && !['Aprobada', 'Enviada', 'Corregida'].includes(la.status) && (
-                      <div className={`deadline-note ${daysLeft < 0 ? 'late' : daysLeft <= 7 ? 'soon' : ''}`}>
-                        {daysLeft < 0
-                          ? `Venció hace ${Math.abs(daysLeft)} días`
-                          : daysLeft === 0
-                            ? 'Vence hoy'
-                            : `Quedan ${daysLeft} días`}
-                      </div>
-                    )}
-                    <button
-                      className="task-action"
-                      aria-label={
-                        la.status === 'Pendiente' ? 'Completar devolución' : 'Ver / modificar devolución'
-                      }
-                      onClick={() => setReturnFormAssignment(la)}
-                    >
-                      {la.status === 'Pendiente'
-                        ? 'Comenzar devolución'
-                        : la.status === 'Aprobada'
-                          ? 'Ver devolución aprobada'
-                          : 'Continuar devolución'}{' '}
-                      <span>→</span>
-                    </button>
-                  </article>
-                )
-              })}
-              {localAssignments.length === 0 && (
-                <div className="friendly-empty local-empty">
-                  <span>✓</span>
-                  <strong>No hay tareas pendientes</strong>
-                  <p>Las actividades publicadas para esta congregación aparecerán aquí.</p>
-                </div>
-              )}
-            </div>
-          </section>
-        </>
+        <LocalRequests state={state} assignments={localAssignments} onAnswer={id => requestQuickFlow(`pedido:${id}`, navigate)} />
       ) : (
         <OperationalHome
           state={state}

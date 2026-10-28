@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Bot, MessageCircle, Send, Sparkles, X } from 'lucide-react'
-import { QUICK_FLOW_EVENT } from './QuickMode'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { ArrowRight, Bot, Bug, MessageCircle, Send, Sparkles, X } from 'lucide-react'
+import { requestQuickFlow } from './QuickMode'
 
 type HelpMessage = {
   id: number
@@ -18,8 +18,6 @@ function normalize(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es')
 }
 
-const isQuickMode = () => document.documentElement.classList.contains('quick-mode-active')
-
 // Preguntas listas para tocar en el Modo r\u00e1pido.
 const QUICK_QUESTIONS = [
   '\u00bfC\u00f3mo paso la lista?',
@@ -27,6 +25,7 @@ const QUICK_QUESTIONS = [
   '\u00bfC\u00f3mo anoto un gasto?',
   '\u00bfC\u00f3mo agrego a una persona nueva?',
   '\u00bfC\u00f3mo env\u00edo el informe del mes?',
+  '\u00bfQu\u00e9 me pidi\u00f3 un comit\u00e9?',
   'Ver el tutorial otra vez'
 ]
 
@@ -35,6 +34,9 @@ function quickAnswerFor(question: string) {
   const q = normalize(question)
   if (/tutorial|como se usa|explica|no entiendo|perdi/.test(q)) {
     return { text: 'Te muestro de nuevo c\u00f3mo se usa, paso a paso.', flow: 'tutorial', action: 'Ver el tutorial' }
+  }
+  if (/comite|pedido|tarea|pidio|piden/.test(q)) {
+    return { text: 'Los pedidos de los comit\u00e9s aparecen en el Inicio. Toc\u00e1s el pedido, eleg\u00eds cu\u00e1ndo lo hicieron y, si ya pasaste lista y anotaste la ofrenda, los n\u00fameros vienen solos. Toc\u00e1s \u00abEnviar al comit\u00e9\u00bb y listo.', flow: 'requests', action: 'Ver los pedidos' }
   }
   if (/asisten|lista|presentes|falto|falta|ausente|vino/.test(q)) {
     return { text: 'Toc\u00e1 \u00abPasar lista\u00bb, eleg\u00ed el culto y toc\u00e1 el nombre de cada persona que vino. Las visitas se suman con el bot\u00f3n +. Al final toc\u00e1 \u00abListo\u00bb.', flow: 'attendance', action: 'Pasar lista ahora' }
@@ -136,11 +138,13 @@ function answerFor(question: string) {
   }
 }
 
-export function HelpChat({ workspaceName = 'Portal Nacional' }: { workspaceName?: string }) {
+// En las congregaciones (local) la ayuda habla simple y lleva a los pasos guiados del Inicio.
+export function HelpChat({ workspaceName = 'Portal Nacional', local = false }: { workspaceName?: string; local?: boolean }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const [lastQuestion, setLastQuestion] = useState('')
-  const [quick, setQuick] = useState(isQuickMode)
+  const quick = local
+  const location = useLocation()
   const [showQuestions, setShowQuestions] = useState(true)
   const messagesRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<HelpMessage[]>([
@@ -149,26 +153,34 @@ export function HelpChat({ workspaceName = 'Portal Nacional' }: { workspaceName?
   useEffect(() => {
     messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages.length, open, showQuestions])
-  const openPanel = () => {
-    setQuick(isQuickMode())
-    setOpen(value => !value)
-  }
+  const openPanel = () => setOpen(value => !value)
+  const navigate = useNavigate()
   const runAction = (message: HelpMessage) => {
     setOpen(false)
-    if (message.flow && isQuickMode()) window.dispatchEvent(new CustomEvent(QUICK_FLOW_EVENT, { detail: message.flow }))
+    if (message.flow && quick) requestQuickFlow(message.flow, navigate)
     else if (message.destination) navigate(message.destination)
   }
-  const navigate = useNavigate()
   const whatsappUrl = useMemo(() => {
     const question = lastQuestion || 'Hola, necesito ayuda con el Portal Nacional.'
     const message = `Hola, necesito ayuda con el Portal Nacional.\nEspacio: ${workspaceName}\nConsulta: ${question}`
     return `https://wa.me/${contactNumber}?text=${encodeURIComponent(message)}`
   }, [lastQuestion, workspaceName])
+  // El reporte llega a Santiago con el espacio, la pantalla y el equipo, para poder reproducir el problema.
+  const problemUrl = useMemo(() => {
+    const message = [
+      'Encontré un problema en el Portal Nacional.',
+      `Espacio: ${workspaceName}`,
+      `Pantalla: ${location.pathname}`,
+      `Equipo: ${window.innerWidth < 700 ? 'celular' : 'computadora'} · ${navigator.userAgent.slice(0, 80)}`,
+      'Qué pasó: '
+    ].join('\n')
+    return `https://wa.me/${contactNumber}?text=${encodeURIComponent(message)}`
+  }, [workspaceName, location.pathname])
 
   const ask = (question: string) => {
     const cleaned = question.trim()
     if (!cleaned) return
-    const reply = isQuickMode() ? quickAnswerFor(cleaned) : answerFor(cleaned)
+    const reply = quick ? quickAnswerFor(cleaned) : answerFor(cleaned)
     setLastQuestion(cleaned)
     setMessages(current => [
       ...current,
@@ -237,7 +249,10 @@ export function HelpChat({ workspaceName = 'Portal Nacional' }: { workspaceName?
             <a href={whatsappUrl} target="_blank" rel="noreferrer noopener">
               <MessageCircle size={15} /> Hablar por WhatsApp
             </a>
-            <small>Se abrirá WhatsApp con la consulta lista para que la envíes.</small>
+            <a href={problemUrl} target="_blank" rel="noreferrer noopener" className="help-chat-problem">
+              <Bug size={15} /> Reportar un problema
+            </a>
+            <small>Se abre WhatsApp con el mensaje listo. Contá qué pasó y envialo.</small>
           </footer>
         </section>
       )}
