@@ -35,19 +35,20 @@ export function Header({ onMenu, workspace, user, onSwitchWorkspace, onLogout }:
     { title: 'Buscar personas', description: 'Encontrar una ficha por nombre o grupo', href: '/personas', keywords: 'buscar personas miembros directorio hermanos familia jovenes juventud juvenil adolescentes' },
     { title: 'Pasar asistencia', description: 'Abrir la lista del encuentro de hoy', href: '/cultos?pasar=hoy', keywords: 'asistencia asistencias lista listas presentes culto reunion encuentro domingo jueves jovenes joven juvenil' },
     { title: 'Crear un evento', description: 'Agregar una actividad al calendario', href: '/calendario?accion=evento', keywords: 'calendario evento eventos actividad actividades crear fecha campamento convencion ayuno devocional evangelismo capacitacion online presencial culto jovenes juventud' },
-    { title: 'Revisar tareas', description: 'Ver entregas y asuntos pendientes', href: '/tareas', keywords: 'tarea tareas pendiente pendientes asignacion asignaciones entrega entregas revisar seguimiento comite jovenes' },
+    { title: 'Ver pedidos de comités', description: 'Responder lo que pidió un comité', href: '/tareas', keywords: 'tarea tareas pedido pedidos pendiente pendientes asignacion asignaciones entrega entregas revisar seguimiento comite jovenes' },
     { title: 'Abrir informes', description: 'Preparar, entregar o revisar informes', href: '/informes', keywords: 'informe informes reporte reportes mensual mensuales cuatrimestral periodo recepcion supervision nacional' },
     { title: 'Abrir comité de Jóvenes', description: 'Ver actividades, reuniones y seguimiento juvenil', href: '/comites?comite=jovenes', keywords: 'joven jovenes juventud juvenil juveniles adolescente adolescentes retiro campamento comite ministerio actividades reunion encuentro' },
     { title: 'Abrir comités', description: 'Consultar actividades y respuestas', href: '/comites', keywords: 'comite comites ministerio damas musica misiones caballeros escuela dominical obra social' },
-    { title: 'Abrir comunicación', description: 'Ir a los chats y canales', href: '/comunicacion', keywords: 'chat chats mensaje mensajes comunicacion escribir consulta avisos canal' },
     { title: 'Cambiar de espacio', description: 'Elegir otra congregación de preparación local', href: '__workspace__', keywords: 'iglesia congregacion espacio perfil cambiar pastor secretaria secretario tesorero' }
   ]
 
   const matchingActions = useMemo(() => {
     const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es')
     const normalized = normalize(actionQuery.trim())
+    // Pasar lista y responder pedidos son tareas de las congregaciones.
+    const isLocal = workspace?.type === 'church' || workspace?.type === 'preaching_place'
     const availableActions = actions.filter(
-      action => action.href !== '/cultos?pasar=hoy' || workspace?.type !== 'national_admin'
+      action => isLocal || !['/cultos?pasar=hoy', '/tareas'].includes(action.href)
     )
     const terms = normalized.split(/\s+/).filter(term => term.length > 1)
     return availableActions

@@ -15,6 +15,7 @@ import {
   UsersRound
 } from 'lucide-react'
 import { LOCAL_COMMITTEES, NATIONAL_COMMITTEES } from '../../shared/catalog.mjs'
+import { whatsappLink } from '../whatsapp'
 
 type Row = { id: string; [key: string]: any }
 type State = Record<string, Row[]>
@@ -360,15 +361,15 @@ export function NationalAdminCommitteesView({
                         >
                           Revisar
                         </button>
-                        <Link
-                          to={`/comunicacion?canal=iglesia:${aa.churchId}&asunto=${encodeURIComponent(
-                            act?.name || 'Tarea nacional'
-                          )}`}
-                          className="secondary-action compact-btn"
-                          style={{ textDecoration: 'none' }}
-                        >
-                          Chat
-                        </Link>
+                        {(() => {
+                          const ch = state.churches.find(c => c.id === aa.churchId)
+                          const href = whatsappLink(ch?.phone, `Hola, Dios le bendiga. Le escribimos por el pedido "${act?.name || 'del comité'}".`)
+                          return href ? (
+                            <a href={href} target="_blank" rel="noreferrer" className="secondary-action compact-btn whatsapp-action">
+                              <MessageSquare size={15} /> WhatsApp
+                            </a>
+                          ) : null
+                        })()}
                       </div>
                     </td>
                   </tr>
@@ -691,15 +692,6 @@ export function LocalChurchCommitteesView({
                 <p>{selectedGroup.notes || 'Gestión integral de integrantes, actividades, asistencia, finanzas y entregas.'}</p>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                {cKey && (
-                  <Link
-                    to={`/comunicacion?canal=comite:${cKey}`}
-                    className="secondary-action"
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <MessageSquare size={16} /> Escribir al Comité Nacional
-                  </Link>
-                )}
                 <button type="button" className="secondary-action" onClick={() => onEditGroup(selectedGroup)}>
                   Editar comité
                 </button>

@@ -84,4 +84,52 @@
   .document-studio .studio-toolbar h2 { font-size: 1.35rem; }
   .document-studio .studio-toolbar small { font-size: 13.5px; }
   .document-studio .report-metric-label { font-size: 14px; }
+
+  /* Tablas como tarjetas: una tarjeta por fila, cada dato con el nombre de su columna
+     (useTableLabels copia el encabezado a data-label). Así no hay que deslizar hacia el costado. */
+  .people-page.crm .crm-table-wrap { overflow: visible; border: 0; background: transparent; box-shadow: none; }
+  .people-page.crm table.crm-table,
+  .people-page.crm table.crm-table tbody { display: block; width: 100%; min-width: 0; }
+  .people-page.crm table.crm-table thead { display: none; }
+  .people-page.crm table.crm-table tbody tr {
+    display: block; margin: 0 0 12px; padding: 10px 14px;
+    border: 1px solid #dce7f2; border-radius: 16px; background: #fff; box-shadow: 0 6px 18px rgba(7, 59, 122, .06);
+  }
+  .people-page.crm table.crm-table tbody tr:hover td { background: transparent; }
+  /* La etiqueta va a la izquierda (posicionada) y el contenido de la celda fluye normal a la derecha. */
+  .people-page.crm table.crm-table td {
+    display: block; position: relative; min-height: 30px; padding: 6px 0 6px 40%;
+    border: 0; border-bottom: 1px solid #eef3f8; text-align: left; overflow-wrap: anywhere;
+  }
+  .people-page.crm table.crm-table td:last-child { border-bottom: 0; }
+  .people-page.crm table.crm-table td::before {
+    content: attr(data-label); position: absolute; left: 0; top: 7px; width: calc(40% - 12px);
+    color: #5b6f82; font-size: 13px; font-weight: 700; line-height: 1.3;
+  }
+  /* Celdas sin etiqueta (foto, acciones): a todo lo ancho. */
+  .people-page.crm table.crm-table td:is([data-label=""], [data-label="Foto"], [data-label="Acción"], [data-label="Acciones"]) { padding-left: 0; }
+  .people-page.crm table.crm-table td:is([data-label=""], [data-label="Foto"], [data-label="Acción"], [data-label="Acciones"])::before { display: none; }
+  /* El primer dato de la tarjeta (el nombre) se lee como título. */
+  .people-page.crm table.crm-table td:first-child:not([data-label="Foto"]),
+  .people-page.crm table.crm-table td[data-label="Nombre y apellido"] { padding-left: 0; font-size: 17px; font-weight: 800; color: #12305a; }
+  .people-page.crm table.crm-table td:first-child:not([data-label="Foto"])::before,
+  .people-page.crm table.crm-table td[data-label="Nombre y apellido"]::before { display: none; }
+  /* Foto y nombre en el mismo renglón, arriba de la tarjeta. */
+  .people-page.crm table.crm-table tbody tr:has(> td[data-label="Foto"]) { display: flex; flex-wrap: wrap; align-items: center; }
+  .people-page.crm table.crm-table tr:has(> td[data-label="Foto"]) > td { flex: 0 0 100%; box-sizing: border-box; }
+  .people-page.crm table.crm-table tr:has(> td[data-label="Foto"]) > td[data-label="Foto"] { flex: 0 0 46px; min-width: 0; max-width: 46px; min-height: 0; padding: 6px 0; border: 0; }
+  .people-page.crm table.crm-table tr:has(> td[data-label="Foto"]) > td[data-label="Foto"] + td { flex: 1 1 0; min-width: 0; min-height: 0; padding-left: 10px; border: 0; }
+  .people-page.crm table.crm-table td:is([data-label="Acción"], [data-label="Acciones"]) { padding-top: 10px; }
+  .people-page.crm table.crm-table td:is([data-label="Acción"], [data-label="Acciones"]) :is(button, a) { width: 100%; min-height: 44px; justify-content: center; }
+  .people-page.crm table.crm-table td:is([data-label="Acción"], [data-label="Acciones"]) > div { display: grid !important; gap: 8px !important; }
+  .people-page.crm .directory-read-only table.crm-table td:last-child { display: none; }
+
+  /* Pestañas internas de los comités nacionales: en renglones y con letra que se lee. */
+  .people-page.crm .committee-nav { flex-wrap: wrap; overflow: visible; }
+  .people-page.crm .committee-nav-tab { flex: 1 1 auto; min-height: 44px; font-size: 15px; }
+}
+
+.committee-back {
+  display: inline-flex; align-items: center; min-height: 44px; margin: 0 0 12px; padding: 0 16px;
+  border: 1px solid #c8dcec; border-radius: 12px; background: #fff; color: #07528f; font-weight: 700; cursor: pointer;
 }

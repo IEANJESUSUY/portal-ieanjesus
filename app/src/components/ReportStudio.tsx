@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { personAgeCategory } from '../../shared/catalog.mjs'
 import logoSecretaria from '../assets/logo-secretaria-nacional.png'
+import { whatsappLink } from '../whatsapp'
 
 type Row = { id: string; [key: string]: any }
 type State = Record<string, Row[]>
@@ -441,14 +442,16 @@ export function ReportHub({
                           Observar
                         </button>
                       )}
-                      <Link
-                        to={`/comunicacion?canal=iglesia:${ch.id}&asunto=${encodeURIComponent(
-                          `Informe mensual ${monthlyPeriod.key}`
-                        )}`}
-                        className="link-inline"
-                      >
-                        <MessageSquare size={14} /> Reclamar / consultar
-                      </Link>
+                      {whatsappLink(ch.phone) && (
+                        <a
+                          href={whatsappLink(ch.phone, `Hola, Dios le bendiga. Le escribimos por el informe mensual de ${monthlyPeriod.key} de ${ch.name}.`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="link-inline whatsapp-link"
+                        >
+                          <MessageSquare size={14} /> Escribir por WhatsApp
+                        </a>
+                      )}
                     </div>
                   </article>
                 )

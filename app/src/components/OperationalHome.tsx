@@ -100,8 +100,8 @@ export function OperationalHome({
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link className="secondary-action" to="/comunicacion">
-              <MessageSquare size={17} /> Comunicación nacional
+            <Link className="secondary-action" to="/calendario">
+              <CalendarDays size={17} /> Calendario nacional
             </Link>
             <Link className="primary-action" to="/informes">
               <FileText size={17} /> Recepción de informes

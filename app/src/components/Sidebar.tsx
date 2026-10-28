@@ -1,14 +1,9 @@
 import {
   BarChart3,
-  Boxes,
   Building2,
-  CalendarDays,
   CircleDollarSign,
   ClipboardCheck,
-  FileText,
   LayoutDashboard,
-  Menu,
-  MessageSquare,
   Network,
   RefreshCw,
   Settings,
@@ -16,7 +11,7 @@ import {
   UsersRound
 } from 'lucide-react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { groupForPath, isLocalWorkspace, localGroups } from '../navigation'
+import { groupForPath, navGroups } from '../navigation'
 
 export type SidebarProps = {
   workspace?: { id: string; type: string; name: string; role?: string } | null
@@ -26,63 +21,27 @@ export type SidebarProps = {
   onLogout?: () => void
 }
 
-export function Sidebar({ workspace, user, onSwitchWorkspace, onOpenMenu, onLogout }: SidebarProps) {
+export function Sidebar({ workspace, user, onSwitchWorkspace }: SidebarProps) {
   const type = workspace?.type || 'national_admin'
   const location = useLocation()
 
-  let items = [
-    { to: '/', label: 'Inicio', icon: LayoutDashboard },
-    { to: '/iglesias', label: 'Iglesias', icon: Building2 },
-    { to: '/personas', label: 'Personas y familias', icon: UsersRound },
-    { to: '/cultos', label: 'Cultos y asistencia', icon: ClipboardCheck },
-    { to: '/finanzas', label: 'Finanzas', icon: CircleDollarSign },
-    { to: '/celulas', label: 'Células', icon: Boxes },
-    { to: '/calendario', label: 'Calendario', icon: CalendarDays },
-    { to: '/comites', label: 'Comités', icon: Network },
-    { to: '/informes', label: 'Informes', icon: BarChart3 },
-    { to: '/comunicacion', label: 'Comunicación', icon: MessageSquare }
-  ]
-
-  if (type === 'national_admin') {
-    items = [
-      { to: '/', label: 'Inicio', icon: LayoutDashboard },
-      { to: '/iglesias', label: 'Iglesias', icon: Building2 },
-      { to: '/personas', label: 'Personas y familias', icon: UsersRound },
-      { to: '/finanzas', label: 'Finanzas', icon: CircleDollarSign },
-      { to: '/celulas', label: 'Células', icon: Boxes },
-      { to: '/calendario', label: 'Calendario', icon: CalendarDays },
-      { to: '/comites', label: 'Comités', icon: Network },
-      { to: '/informes', label: 'Informes', icon: BarChart3 },
-      { to: '/comunicacion', label: 'Comunicación', icon: MessageSquare }
-    ]
-  } else if (type === 'national_committee') {
-    items = [
-      { to: '/', label: 'Panel del comité', icon: LayoutDashboard },
-      { to: '/comites', label: 'Actividades y matriz', icon: Sparkles },
-      { to: '/personas', label: 'Personas', icon: UsersRound },
-      { to: '/calendario', label: 'Calendario', icon: CalendarDays },
-      { to: '/finanzas', label: 'Finanzas del comité', icon: CircleDollarSign },
-      { to: '/informes', label: 'Informes', icon: BarChart3 },
-      { to: '/comunicacion', label: 'Comunicación', icon: MessageSquare }
-    ]
-  } else if (isLocalWorkspace(type)) {
-    const icons: Record<string, typeof LayoutDashboard> = {
-      '/': LayoutDashboard, '/personas': UsersRound, '/cultos': ClipboardCheck, '/finanzas': CircleDollarSign, '/informes': BarChart3
-    }
-    items = localGroups(type).map(group => ({ to: group.to, label: group.label, icon: icons[group.to] }))
+  // Todos los espacios tienen cinco secciones; las pantallas de cada una se ven como pestañas.
+  const icons: Record<string, typeof LayoutDashboard> = {
+    '/': LayoutDashboard,
+    '/personas': UsersRound,
+    '/iglesias': Building2,
+    '/cultos': ClipboardCheck,
+    '/comites': type === 'national_committee' ? Sparkles : Network,
+    '/finanzas': CircleDollarSign,
+    '/informes': BarChart3
   }
+  const groups = navGroups(type)
+  const items = groups.map(group => ({ to: group.to, label: group.label, short: group.short, icon: icons[group.to] || LayoutDashboard }))
 
-  // En las congregaciones, una sección queda marcada en cualquiera de sus pestañas.
-  const activeGroup = isLocalWorkspace(type) ? groupForPath(location.pathname, type)?.to : undefined
+  // Una sección queda marcada en cualquiera de sus pestañas.
+  const activeGroup = groupForPath(location.pathname, type)?.to
   const itemClass = (to: string, base: string) => ({ isActive }: { isActive: boolean }) =>
     `${base}${(activeGroup ? activeGroup === to : isActive) ? ' active' : ''}`
-
-  // Las congregaciones tienen sus cinco secciones abajo; el resto (configuración, cambiar de espacio) queda en ☰.
-  const primaryMobileRoutes = type === 'national_committee' ? ['/', '/comites', '/finanzas', '/informes'] : type === 'national_admin' ? ['/', '/personas', '/finanzas', '/informes'] : localGroups(type).map(group => group.to)
-  const mobileItems = primaryMobileRoutes.map(route => items.find(item => item.to === route)).filter(Boolean) as typeof items
-  const shortLabel: Record<string, string> = isLocalWorkspace(type)
-    ? Object.fromEntries(localGroups(type).map(group => [group.to, group.short]))
-    : { '/': 'Inicio', '/personas': 'Personas', '/cultos': 'Asistencia', '/finanzas': 'Finanzas', '/informes': 'Informes', '/comites': type === 'national_committee' ? 'Actividades' : 'Comités' }
 
   return (
     <>
@@ -139,20 +98,18 @@ export function Sidebar({ workspace, user, onSwitchWorkspace, onOpenMenu, onLogo
         </div>
       </div>
     </aside>
+    {/* En el celular las cinco secciones van abajo; configuración y cambiar de espacio quedan en ☰. */}
     <nav className="mobile-bottom-nav" aria-label="Navegación móvil">
-      {mobileItems.map(({ to, label, icon: Icon }) => (
+      {items.map(({ to, label, short, icon: Icon }) => (
         <NavLink
           key={`mobile-${to}`}
           to={to}
           end={to === '/'}
           className={itemClass(to, 'mobile-bottom-item')}
         >
-          <Icon size={19} strokeWidth={1.9} /><span>{shortLabel[to] || label}</span>
+          <Icon size={19} strokeWidth={1.9} /><span>{short || label}</span>
         </NavLink>
       ))}
-      {!isLocalWorkspace(type) && (
-        <button type="button" className="mobile-bottom-item" onClick={onOpenMenu}><Menu size={19} /><span>Más</span></button>
-      )}
     </nav>
     </>
   )

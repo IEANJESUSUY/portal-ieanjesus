@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -26,6 +26,7 @@ import {
   LayoutGrid,
   Upload,
   UsersRound,
+  MessageCircle,
   X
 } from 'lucide-react'
 import {
@@ -44,7 +45,8 @@ import { createDemoState } from './demo-data'
 import { OperationalHome } from './components/OperationalHome'
 import { ReportHub } from './components/ReportStudio'
 import { CalendarModule, CalendarPreviewCard, EventModal } from './components/CalendarModule'
-import { CommunicationHub } from './components/CommunicationHub'
+import { whatsappLink } from './whatsapp'
+import { useTableLabels } from './useTableLabels'
 import { LocalChurchCommitteesView, NationalAdminCommitteesView } from './components/CommitteesModule'
 import { QuickMode, requestQuickFlow } from './components/QuickMode'
 import { LocalRequests } from './components/LocalRequests'
@@ -1537,6 +1539,81 @@ function Editor({
   )
 }
 
+// --- Orden y filtros de la lista de personas ---
+
+type PeopleShow = 'Todos' | 'De la iglesia' | 'Visitas' | 'Bautizados' | 'Sin bautizar'
+type PeopleSort = 'name' | 'oldest' | 'youngest' | 'birthday' | 'baptism'
+
+const PEOPLE_SHOW: PeopleShow[] = ['Todos', 'De la iglesia', 'Visitas', 'Bautizados', 'Sin bautizar']
+const PEOPLE_SORT: { key: PeopleSort; label: string }[] = [
+  { key: 'name', label: 'Nombre (A a la Z)' },
+  { key: 'oldest', label: 'Edad (mayores primero)' },
+  { key: 'youngest', label: 'Edad (menores primero)' },
+  { key: 'birthday', label: 'Próximos cumpleaños' },
+  { key: 'baptism', label: 'Fecha de bautismo (más antiguos primero)' }
+]
+
+const isVisitStatus = (p: Row) => ['Amigo', 'Visita', 'Seguimiento'].includes(p.status)
+const hasDate = (value: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))
+
+function peopleShowFilter(show: PeopleShow) {
+  return (p: Row) =>
+    show === 'Todos' ||
+    (show === 'De la iglesia' && !isVisitStatus(p) && p.status !== 'Inactivo') ||
+    (show === 'Visitas' && isVisitStatus(p)) ||
+    (show === 'Bautizados' && hasDate(p.baptism)) ||
+    (show === 'Sin bautizar' && !hasDate(p.baptism))
+}
+
+// Días que faltan para el próximo cumpleaños (0 = hoy).
+function daysToBirthday(birthday: string) {
+  if (!hasDate(birthday)) return null
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const [, m, d] = birthday.split('-').map(Number)
+  let next = new Date(start.getFullYear(), m - 1, d)
+  if (next < start) next = new Date(start.getFullYear() + 1, m - 1, d)
+  return Math.round((next.getTime() - start.getTime()) / 86_400_000)
+}
+
+// Quien no tiene el dato va siempre al final de la lista.
+function sortPeople(list: Row[], sort: PeopleSort) {
+  const byName = (a: Row, b: Row) => label(a).localeCompare(label(b), 'es', { sensitivity: 'base' })
+  const missingLast = (a: unknown, b: unknown) => (a == null || a === '' ? 1 : 0) - (b == null || b === '' ? 1 : 0)
+  return [...list].sort((a, b) => {
+    if (sort === 'name') return byName(a, b)
+    if (sort === 'birthday') {
+      const da = daysToBirthday(a.birthday)
+      const db = daysToBirthday(b.birthday)
+      return missingLast(da, db) || (da ?? 0) - (db ?? 0) || byName(a, b)
+    }
+    const key = sort === 'baptism' ? 'baptism' : 'birthday'
+    const va = hasDate(a[key]) ? a[key] : ''
+    const vb = hasDate(b[key]) ? b[key] : ''
+    const order = sort === 'youngest' ? vb.localeCompare(va) : va.localeCompare(vb)
+    return missingLast(va, vb) || order || byName(a, b)
+  })
+}
+
+// El celular abre WhatsApp con un saludo ya escrito.
+function PhoneCell({ phone, name }: { phone?: string; name?: string }) {
+  if (!phone) return <>—</>
+  const href = whatsappLink(phone, `Hola${name ? ` ${name}` : ''}, Dios te bendiga.`)
+  if (!href) return <>{phone}</>
+  return (
+    <a className="phone-whatsapp" href={href} target="_blank" rel="noreferrer" title="Escribir por WhatsApp">
+      <MessageCircle size={15} aria-hidden="true" /> {phone}
+    </a>
+  )
+}
+
+function birthdayHint(days: number | null) {
+  if (days === null) return ''
+  if (days === 0) return '¡Cumple hoy!'
+  if (days === 1) return 'Cumple mañana'
+  return `Cumple en ${days} días`
+}
+
 // --- Directorio y Listados Comunes (con segmentación por congregación Lote 1 y Lote 2) ---
 
 function Directory({
@@ -1568,6 +1645,8 @@ function Directory({
   )
   const [visibleCount, setVisibleCount] = useState(12)
   const [showTitheAmounts, setShowTitheAmounts] = useState(false)
+  const [peopleShow, setPeopleShow] = useState<PeopleShow>('Todos')
+  const [peopleSort, setPeopleSort] = useState<PeopleSort>('name')
 
   useEffect(() => {
     const wanted = new URLSearchParams(location.search).get('iglesia')
@@ -1576,7 +1655,7 @@ function Directory({
 
   useEffect(() => {
     setVisibleCount(12)
-  }, [collection, query, selectedChurchId, scope])
+  }, [collection, query, selectedChurchId, scope, peopleShow, peopleSort])
 
   const schema = catalog[collection]
   const committeePeople: Row[] | null =
@@ -1610,7 +1689,8 @@ function Directory({
           String(v).toLocaleLowerCase().includes(query.toLocaleLowerCase())
       )
   )
-  const rows = baseRows.filter(r => !selectedChurchId || r.churchId === selectedChurchId)
+  const churchRows = baseRows.filter(r => !selectedChurchId || r.churchId === selectedChurchId)
+  const rows = collection === 'people' ? sortPeople(churchRows.filter(peopleShowFilter(peopleShow)), peopleSort) : churchRows
   // Los movimientos se muestran del más reciente al más antiguo.
   if (collection === 'transactions') rows.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
   const visibleRows = rows.slice(0, visibleCount)
@@ -1876,6 +1956,28 @@ function Directory({
           </div>
         </section>
       ) : collection === 'people' ? (
+        <>
+        <div className="people-tools" aria-label="Ordenar y filtrar personas">
+          <div className="people-show" role="group" aria-label="Mostrar">
+            {PEOPLE_SHOW.map(option => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={peopleShow === option}
+                className={peopleShow === option ? 'active' : ''}
+                onClick={() => setPeopleShow(option)}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+          <label className="people-sort">
+            <span>Ordenar por</span>
+            <select value={peopleSort} onChange={e => setPeopleSort(e.target.value as PeopleSort)}>
+              {PEOPLE_SORT.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
+            </select>
+          </label>
+        </div>
         <div className={`crm-table-wrap${readOnly ? ' directory-read-only' : ''}`}>
           <table className="crm-table">
             <thead>
@@ -1885,6 +1987,7 @@ function Directory({
                 <th>Tipo</th>
                 <th>Celular</th>
                 <th>Nacimiento / Edad</th>
+                <th>Bautismo</th>
                 <th>Responsabilidad</th>
                 {!scope && <th>Congregación</th>}
                 <th>Acción</th>
@@ -1938,16 +2041,18 @@ function Directory({
                         {normStatus === 'Persona vinculada' ? 'De la iglesia' : normStatus === 'Amigo' ? 'Visita' : normStatus}
                       </span>
                     </td>
-                    <td>{r.phone || '—'}</td>
+                    <td><PhoneCell phone={r.phone} name={r.name} /></td>
                     <td>
                       {r.birthday ? (
                         <span>
                           {formatDate(r.birthday)} {age !== null && <small className="cat-tag">{age} años</small>}
+                          {peopleSort === 'birthday' && <small className="birthday-hint">{birthdayHint(daysToBirthday(r.birthday))}</small>}
                         </span>
                       ) : (
                         '—'
                       )}
                     </td>
+                    <td>{hasDate(r.baptism) ? formatDate(r.baptism) : '—'}</td>
                     <td>{r.committeeRole || r.role || '—'}</td>
                     {!scope && <td>{ch?.name || '—'}</td>}
                     <td>
@@ -1960,6 +2065,7 @@ function Directory({
           </table>
           {!rows.length && <p className="empty-state">No se encontraron personas con estos filtros.</p>}
         </div>
+        </>
       ) : collection === 'transactions' ? (
         <div className={`crm-table-wrap${readOnly ? ' directory-read-only' : ''}`}>
           <table className="crm-table">
@@ -2055,6 +2161,8 @@ function Directory({
                             {calculateAge(r.birthday) !== null ? `${calculateAge(r.birthday)} años` : ''}
                           </small>
                         </span>
+                      ) : f.type === 'tel' ? (
+                        <PhoneCell phone={r[f.key]} name={label(r)} />
                       ) : f.type === 'money' ? (
                         money(Number(r[f.key]))
                       ) : catalog[f.type] ? (
@@ -5090,14 +5198,14 @@ function CommitteeWorkspaceView({
         </div>
       </section>
 
-      {/* Navegación interna propia del comité (sin repetir módulos laterales como Personas, Finanzas o Informes — Lote 2) */}
-      <div className="committee-nav">
-        <button
-          className={`committee-nav-tab ${activeTab === 'panel' ? 'active' : ''}`}
-          onClick={() => setActiveTab('panel')}
-        >
-          Panel del comité
+      {/* El Inicio del comité es solo el panel; desde ahí, un atajo abre una pestaña y se puede volver. */}
+      {mode === 'panel' && activeTab !== 'panel' && (
+        <button type="button" className="committee-back" onClick={() => setActiveTab('panel')}>
+          ← Volver al inicio del comité
         </button>
+      )}
+      {(mode === 'operativo' || activeTab !== 'panel') && (
+      <div className="committee-nav">
         <button
           className={`committee-nav-tab ${activeTab === 'actividades' ? 'active' : ''}`}
           onClick={() => setActiveTab('actividades')}
@@ -5108,29 +5216,30 @@ function CommitteeWorkspaceView({
           className={`committee-nav-tab ${activeTab === 'asignaciones' ? 'active' : ''}`}
           onClick={() => setActiveTab('asignaciones')}
         >
-          Asignaciones y entregas ({assignments.length})
+          Pedidos y respuestas ({assignments.length})
         </button>
         <button
           className={`committee-nav-tab ${activeTab === 'asistencia' ? 'active' : ''}`}
           onClick={() => setActiveTab('asistencia')}
         >
-          Asistencia en eventos ({committeeEvents.length})
+          Asistencia ({committeeEvents.length})
         </button>
         <button
           className={`committee-nav-tab ${activeTab === 'lideres' ? 'active' : ''}`}
           onClick={() => setActiveTab('lideres')}
         >
-          Líderes por congregación ({leaders.length})
+          Líderes ({leaders.length})
         </button>
         {['jovenes', 'damas', 'musica', 'comunicaciones'].includes(committeeKey) && (
           <button
             className={`committee-nav-tab ${activeTab === 'especifico' ? 'active' : ''}`}
             onClick={() => setActiveTab('especifico')}
           >
-            Módulo especializado ({committee.name})
+            Herramientas de {committee.name}
           </button>
         )}
       </div>
+      )}
 
       {activeTab === 'panel' && (
         <>
@@ -6148,6 +6257,7 @@ export default function CRM({
   // En congregaciones y lugares de predicación, el Inicio es el Modo rápido y el menú queda siempre a mano.
   const isLocalSpace = ['church', 'preaching_place'].includes(currentWorkspace?.type)
   const quickMode = isLocalSpace && path === '/'
+  useTableLabels()
 
   // Lote 5: Formulario de inicio de sesión moderno con mostrar/ocultar contraseña y manejo de errores
   const handledAction = useRef('')
@@ -6557,8 +6667,10 @@ export default function CRM({
         </p>
       )}
 
-      {isLocalSpace && <SectionTabs path={path} wsType={wsType} />}
+      {!quickMode && <SectionTabs path={path} wsType={wsType} />}
 
+      {/* Cada pantalla entra con una animación corta al cambiar de sección o pestaña. */}
+      <div key={path} className="page-enter">
       {quickMode ? (
         <QuickMode
           key={activeScope}
@@ -6582,15 +6694,8 @@ export default function CRM({
           canEditEvent={row => wsType !== 'national_admin' || (!row.churchId && !row.preachingPlaceId && row.scopeAudience !== 'Congregación local' && row.scope !== 'local')}
         />
       ) : path === '/comunicacion' ? (
-        <CommunicationHub
-          state={state}
-          wsType={wsType}
-          scope={activeScope}
-          committeeKey={wsType === 'national_committee' ? currentWorkspace?.committeeKey : undefined}
-          workspaceName={currentWorkspace?.name || 'Administración Nacional'}
-          userDisplayName={currentUser?.displayName || 'Usuario'}
-          save={save}
-        />
+        // Los mensajes se mandan por WhatsApp; un enlace viejo a Comunicación vuelve al Inicio.
+        <Navigate to="/" replace />
       ) : path === '/comites' ? (
         wsType === 'national_committee' ? (
           <CommitteeWorkspaceView
@@ -6693,6 +6798,7 @@ export default function CRM({
           onTask={setReturnFormAssignment}
         />
       )}
+      </div>
 
       {/* Modal Editor de Fichas Especializados y Genéricos */}
       {editor && editor.collection === 'people' ? (

@@ -47,10 +47,14 @@ export function createDemoState(): DemoState {
     const churchId = index < 16 ? 'demo-ch-maldonado' : 'demo-ch-salto'
     const id = `demo-person-${String(index + 1).padStart(2, '0')}`
     const birthdayYear = index % 3 === 0 ? 2004 : index % 3 === 1 ? 1986 : 1975
+    const isFriend = index === 5 || index === 18
+    // Dos de cada tres hermanos tienen fecha de bautismo, años antes del período de los informes.
+    const baptized = !isFriend && index % 3 !== 1
     const person = {
-      id, name, surname, churchId, status: index === 5 || index === 18 ? 'Amigo' : 'Miembro',
+      id, name, surname, churchId, status: isFriend ? 'Amigo' : 'Miembro',
       gender: index % 2 === 0 ? 'Femenino' : 'Masculino',
       birthday: `${birthdayYear}-${String((index % 12) + 1).padStart(2, '0')}-${String((index % 25) + 1).padStart(2, '0')}`,
+      baptism: baptized ? `${birthdayYear + 15 + (index % 4)}-${String(((index * 5) % 12) + 1).padStart(2, '0')}-${String(((index * 7) % 27) + 1).padStart(2, '0')}` : '',
       role: index === 0 ? 'Responsable local de Jóvenes' : '',
       createdAt: startDate
     }

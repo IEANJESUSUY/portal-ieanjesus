@@ -115,8 +115,8 @@ function answerFor(question: string) {
   }
   if (/chat|mensaje|comunicacion|contactar/.test(q)) {
     return {
-      text: 'La sección Comunicación contiene los canales del espacio activo. Para hablar directamente con una persona, usa el botón “Hablar por WhatsApp” que aparece abajo.',
-      destination: '/comunicacion', action: 'Abrir Comunicación'
+      text: 'Los mensajes se mandan por WhatsApp. En Personas, tocá el número de celular de alguien para escribirle; en Informes y en los pedidos de comités está el botón “WhatsApp” para hablar con cada iglesia.',
+      destination: '/personas', action: 'Abrir Personas'
     }
   }
   if (/cuenta|usuario|contrasena|clave|acceso|entrar|perfil/.test(q)) {

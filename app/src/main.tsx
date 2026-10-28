@@ -8,6 +8,7 @@ import './official-polish.css'
 import './quick-mode.css'
 import './mobile-readable.css'
 import './report-official.css'
+import './motion.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

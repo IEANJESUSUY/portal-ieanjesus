@@ -413,6 +413,23 @@
 .section-tab.active { background: var(--qm-navy); color: #fff; }
 @media (max-width: 700px) { .section-tab { font-size: 15px; } }
 
+/* Personas: qué mostrar y en qué orden. */
+.people-tools { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin: 0 0 14px; }
+.people-show { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+.people-tools .people-show button {
+  flex: 0 0 auto; min-height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px;
+  background: #fff; color: var(--qm-navy); font-weight: 700; white-space: nowrap; cursor: pointer; box-shadow: none;
+}
+.people-tools .people-show button.active { background: var(--qm-navy); border-color: var(--qm-navy); color: #fff; }
+.people-sort { display: grid; gap: 4px; font-weight: 700; color: var(--muted); font-size: .9rem; }
+.people-sort select { min-height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--qm-navy); font-weight: 700; }
+.birthday-hint { display: block; margin-top: 2px; color: #a0670c; font-weight: 700; }
+@media (max-width: 700px) {
+  .people-tools { display: grid; }
+  .people-tools .people-show button { font-size: 15px; padding: 0 12px; }
+  .people-sort select { width: 100%; font-size: 16px; }
+}
+
 .people-page.crm .preaching-banner { display: block; margin: 0 0 14px; padding: 10px 14px; font-size: .95rem; color: #6b4a1e; }
 
 /* Estado de un pedido */
