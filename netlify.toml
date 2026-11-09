@@ -1,0 +1,16 @@
+# Alternativa a GitHub Pages que funciona con el repositorio privado (gratis).
+# En Netlify: Add new site → Import from GitHub → elegir el repositorio. Toma esta configuración sola.
+# Las claves de la base central van en Site configuration → Environment variables:
+#   VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY
+[build]
+  base = "app"
+  command = "npm ci && node scripts/build-web.mjs"
+  publish = "dist-web"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"

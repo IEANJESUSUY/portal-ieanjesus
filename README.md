@@ -1,31 +1,18 @@
-# APP Nacional
+# Portal Nacional · IEANJESÚS Uruguay
 
-CRM nacional para administrar iglesias, personas y familias, cultos,
-asistencias, finanzas, comités, células e informes.
+CRM de la Iglesia Evangélica Apostólica del Nombre de Jesús en Uruguay: personas, cultos y asistencia,
+dinero, células, comités nacionales e informes mensuales con la planilla oficial de la Secretaría Nacional.
+Pensado primero para el celular y para pastores con poca experiencia en tecnología.
 
-- `app/`: aplicación oficial en desarrollo.
-- `prototipo/`: primer prototipo conservado solamente como referencia.
-- `docs/`: alcance funcional y análisis de ChurchCRM.
-- `work/churchcrm-source/`: copia local ignorada de ChurchCRM para consulta.
+- **Abrir sin instalar nada:** doble clic en `index.html` (o en `app/index.html`). Guarda en ese navegador.
+- **Publicarlo y conectarlo a la base central:** [docs/puesta-en-marcha.md](docs/puesta-en-marcha.md).
+- **Mapa de procesos (para presentar):** [docs/mapa-de-procesos.html](docs/mapa-de-procesos.html).
+- **Formulario de Google para cargar a los hermanos:** [docs/formulario-google-maldonado.md](docs/formulario-google-maldonado.md).
 
-Prototipo inicial de una plataforma nacional para administrar iglesias locales,
-personas, cultos, asistencia, finanzas, comités e informes.
+## Carpetas
 
-## Contenido
-
-- `docs/`: alcance funcional y decisiones del proyecto.
-- `prototipo/`: interfaz navegable con datos ficticios.
-- `app/`: reservado para la aplicación definitiva.
-- `recursos/`: logos, imágenes y otros materiales de la organización.
-- `work/churchcrm-source/`: copia local ignorada del proyecto ChurchCRM para análisis.
-
-## Abrir el prototipo
-
-Abrir `prototipo/index.html` en un navegador. No requiere instalación ni conexión
-a internet.
-
-## Documentación de análisis
-
-- `docs/alcance-inicial.md`: decisiones funcionales acordadas.
-- `docs/analisis-churchcrm.md`: módulos de ChurchCRM que pueden adaptarse.
-
+- `app/`: la aplicación (React + TypeScript + Vite). Ver [app/README.md](app/README.md).
+- `app/supabase/schema.sql`: base central con sus reglas de acceso.
+- `.github/workflows/publicar.yml` y `netlify.toml`: publicación automática.
+- `docs/`: guías, decisiones y análisis.
+- `prototipo/`: primer prototipo, solo como referencia.

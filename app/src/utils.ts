@@ -14,6 +14,34 @@ export const formatDate = (value?: string) => {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value || '')
   return match ? `${match[3]}/${match[2]}/${match[1]}` : value || '—'
 }
+// Lee un CSV (coma o punto y coma, con comillas) como el que descarga Google Forms / Hojas de cálculo.
+export function parseCsv(text: string) {
+  const rows: string[][] = []
+  let row: string[] = []
+  let value = ''
+  let quoted = false
+  const firstLine = text.replace(/^﻿/, '').split(/\r?\n/, 1)[0]
+  const delimiter = (firstLine.match(/;/g)?.length || 0) > (firstLine.match(/,/g)?.length || 0) ? ';' : ','
+  const source = text.replace(/^﻿/, '')
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index]
+    if (char === '"' && quoted && source[index + 1] === '"') { value += '"'; index++; continue }
+    if (char === '"') { quoted = !quoted; continue }
+    if (char === delimiter && !quoted) { row.push(value.trim()); value = ''; continue }
+    if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && source[index + 1] === '\n') index++
+      row.push(value.trim()); value = ''
+      if (row.some(Boolean)) rows.push(row)
+      row = []
+      continue
+    }
+    value += char
+  }
+  row.push(value.trim())
+  if (row.some(Boolean)) rows.push(row)
+  return rows
+}
+
 export const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`
 export const committeeLabel = (key?: string) => NATIONAL_COMMITTEES.find((c: { key: string }) => c.key === key)?.name || key || ''
 

@@ -171,7 +171,12 @@ export const catalog = {
       field('ageGroup', 'Edad aproximada', 'select', false, ['Niño', 'Joven', 'Adulto']),
       field('phone', 'Celular', 'tel'),
       field('address', 'Dirección'),
+      field('baptized', '¿Está bautizado/a?', 'select', false, ['Sí', 'No']),
       field('baptism', 'Fecha de bautismo', 'date'),
+      // Si la persona solo recuerda el año, se guarda el 1 de enero de ese año y se marca como aproximada.
+      field('baptismPrecision', 'Precisión de la fecha de bautismo', 'select', false, ['Exacta', 'Solo año']),
+      field('neighborhood', 'Barrio'),
+      field('dataConsent', 'Autorizó guardar sus datos', 'select', false, ['Sí', 'No']),
       field('role', 'Responsabilidad o comité'),
       field('status', 'Tipo de registro', 'select', true, ['Amigo', 'Persona vinculada', 'Inactivo', 'Miembro', 'Visita']),
       field('photo', 'Fotografía', 'photo'),

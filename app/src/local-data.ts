@@ -3,7 +3,7 @@ import { catalog, validateRecord, validateState } from '../shared/catalog.mjs'
 type RecordData = { id: string; [key: string]: any }
 type Data = Record<string, RecordData[]>
 const DEMO_SEED_VERSION = 5
-const empty = (): Data => Object.fromEntries([...Object.keys(catalog), 'attendance'].map(key => [key, []]))
+export const empty = (): Data => Object.fromEntries([...Object.keys(catalog), 'attendance'].map(key => [key, []]))
 
 function deduplicateSchedules(schedules: RecordData[]): RecordData[] {
   const seen = new Map<string, RecordData>()
@@ -936,6 +936,54 @@ function createDefaultSeed(): Data {
   return seed
 }
 
+// Reglas para guardar un registro (validación, asistencia única por culto, sin duplicar horarios).
+// Las usan el almacenamiento del navegador y la base central, para que ambos guarden igual.
+export function prepareRecord(state: Data, collection: string, body: any): RecordData {
+  if (!state[collection] && collection !== 'attendance') throw new Error('Colección no válida.')
+  const lookup = (type: string, id: string) => state[type]?.find(r => r.id === id)
+  let value: any
+  let id = body.id
+  if (collection === 'attendance') {
+    const event = lookup('events', body.eventId)
+    if (!event) throw new Error('Selecciona un encuentro existente.')
+    const people = [...new Set<string>(body.people || [])]
+    if (people.some(personId => !lookup('people', personId) || (event.churchId && lookup('people', personId)?.churchId !== event.churchId))) {
+      throw new Error('Hay personas de otra congregación.')
+    }
+    const visitors = Number(body.visitors ?? 0)
+    if (!Number.isInteger(visitors) || visitors < 0 || visitors > 100000) throw new Error('Cantidad de visitas no válida.')
+    value = {
+      eventId: event.id,
+      churchId: event.churchId || '',
+      people,
+      visitors,
+      visitorsByChurch: body.visitorsByChurch && typeof body.visitorsByChurch === 'object' ? body.visitorsByChurch : {},
+      onlineConfirmations: Array.isArray(body.onlineConfirmations) ? body.onlineConfirmations : [],
+      activityId: body.activityId ? String(body.activityId) : '',
+      assignmentId: body.assignmentId ? String(body.assignmentId) : ''
+    }
+    id = state.attendance.find(a => a.eventId === event.id)?.id
+  } else {
+    value = validateRecord(collection, body, lookup)
+    if (collection === 'serviceSchedules' && !id) {
+      const existingSched = state.serviceSchedules.find(
+        s => s.churchId === value.churchId && s.day === value.day && s.time === value.time
+      )
+      if (existingSched) id = existingSched.id
+    }
+    if (collection === 'events' && !id && value.scheduleId) {
+      const existingEvent = state.events.find(
+        e => e.churchId === value.churchId && e.date === value.date && e.time === value.time && e.name === value.name
+      )
+      if (existingEvent) id = existingEvent.id
+    }
+  }
+  const previous = id ? lookup(collection, id) : undefined
+  if (id && !previous) throw new Error('No se encontró el registro original.')
+  if (previous?.churchId && value.churchId && previous.churchId !== value.churchId) throw new Error('El traslado entre congregaciones requiere revisión.')
+  return { ...value, id: id || crypto.randomUUID(), createdAt: previous?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() }
+}
+
 // A read/write transaction serializes saves across tabs sharing this database.
 export async function localApi(path: string, body?: any): Promise<any> {
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -1005,49 +1053,7 @@ export async function localApi(path: string, body?: any): Promise<any> {
           return
         }
         const collection = path.split('/').pop()!
-        if (!state[collection] && collection !== 'attendance') throw new Error('Colección no válida.')
-        const lookup = (type: string, id: string) => state[type]?.find(r => r.id === id)
-        let value: any
-        let id = body.id
-        if (collection === 'attendance') {
-          const event = lookup('events', body.eventId)
-          if (!event) throw new Error('Selecciona un encuentro existente.')
-          const people = [...new Set<string>(body.people || [])]
-          if (people.some(personId => !lookup('people', personId) || (event.churchId && lookup('people', personId)?.churchId !== event.churchId))) {
-            throw new Error('Hay personas de otra congregación.')
-          }
-          const visitors = Number(body.visitors ?? 0)
-          if (!Number.isInteger(visitors) || visitors < 0 || visitors > 100000) throw new Error('Cantidad de visitas no válida.')
-          value = {
-            eventId: event.id,
-            churchId: event.churchId || '',
-            people,
-            visitors,
-            visitorsByChurch: body.visitorsByChurch && typeof body.visitorsByChurch === 'object' ? body.visitorsByChurch : {},
-            onlineConfirmations: Array.isArray(body.onlineConfirmations) ? body.onlineConfirmations : [],
-            activityId: body.activityId ? String(body.activityId) : '',
-            assignmentId: body.assignmentId ? String(body.assignmentId) : ''
-          }
-          id = state.attendance.find(a => a.eventId === event.id)?.id
-        } else {
-          value = validateRecord(collection, body, lookup)
-          if (collection === 'serviceSchedules' && !id) {
-            const existingSched = state.serviceSchedules.find(
-              s => s.churchId === value.churchId && s.day === value.day && s.time === value.time
-            )
-            if (existingSched) id = existingSched.id
-          }
-          if (collection === 'events' && !id && value.scheduleId) {
-            const existingEvent = state.events.find(
-              e => e.churchId === value.churchId && e.date === value.date && e.time === value.time && e.name === value.name
-            )
-            if (existingEvent) id = existingEvent.id
-          }
-        }
-        const previous = id ? lookup(collection, id) : undefined
-        if (id && !previous) throw new Error('No se encontró el registro original.')
-        if (previous?.churchId && value.churchId && previous.churchId !== value.churchId) throw new Error('El traslado entre congregaciones requiere revisión.')
-        result = { ...value, id: id || crypto.randomUUID(), createdAt: previous?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() }
+        result = prepareRecord(state, collection, body)
         state[collection] = [...state[collection].filter(r => r.id !== result.id), result]
         store.put(state, 'records')
       } catch (error) { failure = error as Error; tx.abort() }

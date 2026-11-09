@@ -7,13 +7,21 @@ work/video-review/
 # Dependencias y resultados generados de la aplicación oficial.
 app/node_modules/
 app/dist/
+app/dist-web/
 app/*.tsbuildinfo
 app/vite.config.js
 app/vite.config.d.ts
 output/
 app/data/
 
+# Claves de la base central: nunca se suben (van como secretos en GitHub o Netlify).
+.env
+.env.local
+app/.env
+app/.env.local
+
 # Archivos temporales y capturas de pruebas automáticas.
 tmp/
 .playwright-cli/
+app/.playwright-cli/
 

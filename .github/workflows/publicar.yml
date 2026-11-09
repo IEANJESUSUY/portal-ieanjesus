@@ -1,0 +1,55 @@
+# Publica el Portal en GitHub Pages cada vez que se suben cambios a la rama principal.
+# Las claves de la base central se cargan en GitHub → Settings → Secrets and variables → Actions:
+#   VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY
+name: Publicar el Portal
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Revisar el código
+        run: npx tsc --noEmit -p tsconfig.app.json
+      - name: Pruebas del almacenamiento
+        run: node --test server/store.test.mjs
+      - name: Compilar la versión web
+        run: node scripts/build-web.mjs
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/dist-web
+
+  publicar:
+    needs: compilar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publicacion.outputs.page_url }}
+    steps:
+      - id: publicacion
+        uses: actions/deploy-pages@v4

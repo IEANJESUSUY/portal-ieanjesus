@@ -138,7 +138,8 @@ export function reportSourceData(state: State, church: string, period: { from: s
       attendance: attendance.reduce((sum, row) => sum + (row.people?.length || 0) + Number(row.visitors || 0), 0) + standaloneAssignments.reduce((sum, assignment) => sum + Number(assignment.attendanceCount || 0) + Number(assignment.visitorsCount || 0), 0),
       income: sumDirection('Ingreso'),
       expenses: sumDirection('Egreso'),
-      baptismsWater: (state.people || []).filter(person => belongsToChurch(person) && person.baptism >= period.from && person.baptism <= period.to).length,
+      // Un bautismo del que solo se sabe el año no se cuenta en ningún mes.
+      baptismsWater: (state.people || []).filter(person => belongsToChurch(person) && person.baptismPrecision !== 'Solo año' && person.baptism >= period.from && person.baptism <= period.to).length,
       preachingPlaces: childPlaces.length,
       refam: (state.groups || []).filter(group => belongsToChurch(group) && !['Inactivo', 'Archivado'].includes(group.status) && /c[eé]lula|refam|grupo de amistad/i.test(`${group.kind || ''} ${group.name || ''}`)).length,
       men: Math.round(men / divisor),
@@ -266,6 +267,29 @@ export function ReportHub({
     }
   }, [wanted, scope])
 
+  // "Imprimir resumen" en Nacional imprime la hoja oficial del mes, no la pantalla.
+  const [printingSummary, setPrintingSummary] = useState(false)
+  useEffect(() => {
+    if (!canReview || scope) return
+    const start = () => setPrintingSummary(true)
+    window.addEventListener(PRINT_NATIONAL_SUMMARY, start)
+    return () => window.removeEventListener(PRINT_NATIONAL_SUMMARY, start)
+  }, [canReview, scope])
+  useEffect(() => {
+    if (!printingSummary) return
+    const html = document.documentElement
+    html.classList.add('report-studio-open')
+    const done = () => setPrintingSummary(false)
+    window.addEventListener('afterprint', done)
+    // Un momento para que el logo y la letra estén listos antes de abrir la impresión.
+    const timer = window.setTimeout(() => window.print(), 300)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('afterprint', done)
+      html.classList.remove('report-studio-open')
+    }
+  }, [printingSummary])
+
   const history = state.monthlyReports
     .filter(r => !church || inScope(r, church))
     .sort((a, b) => String(b.month).localeCompare(String(a.month)))
@@ -304,6 +328,12 @@ export function ReportHub({
 
     return (
       <>
+        {printingSummary && createPortal(
+          <div id="report-print-root">
+            <NationalSummaryDocument state={state} month={month} />
+          </div>,
+          document.body
+        )}
         <section className="report-preparation" aria-label="Recepción nacional de informes">
           <div className="report-preparation-controls">
             <div>
@@ -466,7 +496,7 @@ export function ReportHub({
 
           <details className="report-history" open>
             <summary>
-              andeja histórica de informes recibidos <span className="count-pill">{history.length}</span>
+              Bandeja histórica de informes recibidos <span className="count-pill">{history.length}</span>
             </summary>
             <div className="report-history-list">
               {history.length ? (
@@ -798,22 +828,32 @@ function ReportStudio({
     }
   }
   const changedTotals = automaticMetricKeys.some(key => metricOverrides.includes(key))
-  const metricInput = (key: string) => (
-    <label key={key}>
-      <span className="report-metric-label">{metricLabels[key]}</span>
-      <input
-        type="number"
-        min="0"
-        step={['income', 'expenses'].includes(key) ? '.01' : '1'}
-        value={metrics[key] || 0}
-        onChange={e => {
-          setMetrics(m => ({ ...m, [key]: Math.max(0, Number(e.target.value) || 0) }))
-          setMetricOverrides(current => current.includes(key) ? current : [...current, key])
-          changed()
-        }}
-      />
-    </label>
-  )
+  const textSetters: Record<TextField, (value: string) => void> = {
+    place: setPlace,
+    pastor: setPastor,
+    license: setLicense,
+    secretary: setSecretary,
+    summary: setSummary
+  }
+  const documentEdit: DocumentEdit = {
+    text: (field, value) => {
+      textSetters[field](value)
+      changed()
+    },
+    metric: (key, value) => {
+      setMetrics(m => ({ ...m, [key]: value }))
+      setMetricOverrides(current => current.includes(key) ? current : [...current, key])
+      changed()
+    },
+    page: updatePage,
+    addPhotos: (files, index) => void addPhotos(files, index),
+    removePage: index => {
+      setPages(p => p.filter((_, i) => i !== index))
+      setActive(0)
+      changed()
+    },
+    photoBusy
+  }
   function addSuggestedPage(suggestion: (typeof suggestions)[number]) {
     if (pages.length >= 20) return
     const body = [
@@ -961,45 +1001,19 @@ function ReportStudio({
               {readOnly || preview ? (
                 <DocumentPages {...documentData} only={active} />
               ) : (
-                <article className="paper-page editable-paper">
-                  <DocumentHeading {...documentData} />
-                  {active === 0 ? (
-                    <>
-                      <div className="paper-section-heading">
-                        <span>01</span>
-                        <h3>Resumen congregacional</h3>
-                      </div>
-                      <div className="paper-responsibles">
-                        {([
-                          ['Lugar', place, setPlace],
-                          ['Pastor', pastor, setPastor],
-                          ['Licencia', license, setLicense],
-                          ['Secretaría local', secretary, setSecretary]
-                        ] as Array<[string, string, (v: string) => void]>).map(([name, value, set]) => (
-                          <label key={name}>
-                            {name}
-                            <input
-                              value={value}
-                              placeholder={name === 'Licencia' ? 'Ej. Ordenación' : undefined}
-                              onChange={e => {
-                                set(e.target.value)
-                                changed()
-                              }}
-                            />
-                          </label>
-                        ))}
-                      </div>
-                      <h4>Planilla oficial</h4>
-                      <p className="paper-help">
-                        Los promedios de asistencia, los lugares de predicación y las REFAM se completan solos con lo anotado en el Portal. Bautismos en el Espíritu, cultos de hogar, canastas de amor e intercesión se escriben aquí. Los bautismos en agua se toman de las fichas; si no están cargados, escríbelos aquí.
-                      </p>
-                      <div className="paper-metric-grid">
-                        {[...officialCounts.map(([key]) => key), ...officialAverages.map(([key]) => key)].map(key => metricInput(key))}
-                      </div>
-                      <h4>Datos del Portal (anexo)</h4>
-                      <div className="paper-metric-grid">
-                        {annexKeys.map(key => metricInput(key))}
-                      </div>
+                <>
+                  <p className="studio-edit-hint">
+                    {active === 0
+                      ? 'Escribí directamente sobre la hoja: los cuadros amarillos se pueden cambiar. Los promedios, los lugares de predicación y las REFAM ya vienen completos con lo anotado en el Portal.'
+                      : active === pageCount - 1
+                        ? 'Estos datos salen de lo anotado en el Portal. Abajo podés escribir observaciones y el nombre de quien firma por la secretaría.'
+                        : 'Escribí el título, contá qué se hizo y agregá hasta 4 fotos.'}
+                  </p>
+                  <div className="ofi-sheet-scroll">
+                    <DocumentPages {...documentData} only={active} edit={documentEdit} />
+                  </div>
+                  {active === 0 && (
+                    <section className="studio-helper">
                       {changedTotals && (
                         <div className="report-adjustment-tools">
                           <button
@@ -1016,18 +1030,6 @@ function ReportStudio({
                           </button>
                         </div>
                       )}
-                      <h4>Observaciones generales</h4>
-                      <textarea
-                        aria-label="Observaciones generales del informe"
-                        rows={5}
-                        maxLength={4000}
-                        value={summary}
-                        onChange={e => {
-                          setSummary(e.target.value)
-                          changed()
-                        }}
-                        placeholder="Describe los avances, necesidades y aspectos relevantes del período…"
-                      />
                       <details className="report-activity-suggestions" open>
                         <summary>Agregar actividades realizadas <span>{suggestions.length}</span></summary>
                         <p className="paper-help">Sugerencias tomadas del calendario y de tareas de comités que ya fueron enviadas.</p>
@@ -1048,82 +1050,9 @@ function ReportStudio({
                           </div>
                         ) : <p>No hay actividades especiales ni tareas completadas en este período.</p>}
                       </details>
-                    </>
-                  ) : active === pageCount - 1 ? (
-                    <ReportGraphs {...documentData} />
-                  ) : (
-                    <>
-                      <span className="eyebrow">Actividad destacada</span>
-                      <label>
-                        Título de la actividad
-                        <input
-                          className="paper-event-title"
-                          value={pages[active - 1].title}
-                          maxLength={160}
-                          onChange={e => updatePage(active - 1, { title: e.target.value })}
-                        />
-                      </label>
-                      <label>
-                        Descripción del evento
-                        <textarea
-                          rows={9}
-                          maxLength={6000}
-                          value={pages[active - 1].body}
-                          onChange={e => updatePage(active - 1, { body: e.target.value })}
-                          placeholder="Qué se realizó, fecha, participantes y resultados…"
-                        />
-                      </label>
-                      <label className="photo-drop">
-                        <ImagePlus size={22} />
-                        <strong>
-                          {photoBusy ? 'Preparando fotografías…' : 'Agregar fotografías del evento'}
-                        </strong>
-                        <span>Hasta 4 por página · Se comprimen al cargarlas</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          disabled={photoBusy || pages[active - 1].photos.length >= 4}
-                          onChange={e => {
-                            void addPhotos(e.target.files, active - 1)
-                            e.target.value = ''
-                          }}
-                        />
-                      </label>
-                      <div className="paper-photos">
-                        {pages[active - 1].photos.map((photo, i) => (
-                          <figure key={i}>
-                            <img src={photo} alt={`Fotografía ${i + 1} de la actividad`} />
-                            <button
-                              aria-label={`Quitar fotografía ${i + 1}`}
-                              onClick={() =>
-                                updatePage(active - 1, {
-                                  photos: pages[active - 1].photos.filter((_, j) => j !== i)
-                                })
-                              }
-                            >
-                              <X size={16} />
-                            </button>
-                          </figure>
-                        ))}
-                      </div>
-                      <button
-                        className="secondary-action"
-                        onClick={() => {
-                          setPages(p => p.filter((_, i) => i !== active - 1))
-                          setActive(0)
-                          changed()
-                        }}
-                      >
-                        Quitar esta página de evento
-                      </button>
-                    </>
+                    </section>
                   )}
-                  <footer className="paper-footer">
-                    <span>Portal Nacional · {title}</span>
-                    <span>{active + 1}</span>
-                  </footer>
-                </article>
+                </>
               )}
             </main>
           </div>
@@ -1202,107 +1131,6 @@ type DocumentData = {
   changedTotals: boolean
 }
 
-function DocumentHeading({ title, churchName, period }: Pick<DocumentData, 'title' | 'churchName' | 'period'>) {
-  return (
-    <header className="paper-heading">
-      <img src="./logo-portal-nacional.png" alt="Portal Nacional" />
-      <div>
-        <span>PORTAL NACIONAL · URUGUAY</span>
-        <h2>{title}</h2>
-        <strong>{churchName}</strong>
-        <p>
-          {dateLabel(period.from)} al {dateLabel(period.to)}
-        </p>
-      </div>
-    </header>
-  )
-}
-
-function ReportGraphs({ events, attendance, transactions, kind, period, changedTotals }: DocumentData) {
-  const months = Array.from(
-    new Set([
-      period.from.slice(0, 7),
-      ...transactions.map(t => t.date.slice(0, 7)),
-      ...events.map(e => e.date.slice(0, 7))
-    ])
-  ).sort()
-  const finance = months.map(m => ({
-    label: new Date(`${m}-01T12:00:00`).toLocaleDateString('es-UY', { month: 'short' }),
-    income: transactions
-      .filter(t => t.date.startsWith(m) && t.direction === 'Ingreso')
-      .reduce((s, t) => s + Number(t.amount), 0),
-    expenses: transactions
-      .filter(t => t.date.startsWith(m) && t.direction === 'Egreso')
-      .reduce((s, t) => s + Number(t.amount), 0)
-  }))
-  const max = Math.max(1, ...finance.flatMap(r => [r.income, r.expenses]))
-  const totals = events.map(e => ({
-    name: e.name,
-    date: e.date,
-    total: attendance
-      .filter(a => a.eventId === e.id)
-      .reduce((s, a) => s + (a.people?.length || 0) + Number(a.visitors || 0), 0),
-    recorded: attendance.some(a => a.eventId === e.id)
-  }))
-  const attMax = Math.max(1, ...totals.map(t => t.total))
-  return (
-    <div className="paper-graphs">
-      <div className="paper-section-heading">
-        <span>02</span>
-        <h3>{kind === 'quarterly' ? 'Evolución del cuatrimestre' : 'Gráficos del mes'}</h3>
-      </div>
-      <p className="paper-help">
-        Calculados a partir de los registros originales del CRM
-        {changedTotals ? ', antes de las correcciones manuales de la planilla' : ''}.
-      </p>
-      <h4>Ingresos y egresos por mes · UYU</h4>
-      <div className="paper-legend">
-        <span>
-          <i /> Ingresos
-        </span>
-        <span>
-          <i /> Egresos
-        </span>
-      </div>
-      {finance.map((r, i) => (
-        <div className="print-bar-group" key={i}>
-          <strong>{r.label}</strong>
-          <div>
-            <div className="print-bar-track">
-              <span style={{ width: `${(r.income / max) * 100}%` }} />
-            </div>
-            <small>{money(r.income)}</small>
-            <div className="print-bar-track expense">
-              <span style={{ width: `${(r.expenses / max) * 100}%` }} />
-            </div>
-            <small>{money(r.expenses)}</small>
-          </div>
-        </div>
-      ))}
-      <h4>Asistencia por encuentro</h4>
-      {totals.length ? (
-        totals.map((r, i) => (
-          <div className="print-attendance-row" key={i}>
-            <div>
-              <strong>{r.name}</strong>
-              <small>{dateLabel(r.date)}</small>
-            </div>
-            <div className="print-bar-track">
-              <span style={{ width: `${(r.total / attMax) * 100}%` }} />
-            </div>
-            <strong>{r.recorded ? r.total : 'Sin lista'}</strong>
-          </div>
-        ))
-      ) : (
-        <p>No hay encuentros registrados en el período.</p>
-      )}
-      <p className="paper-help">
-        Asistencias acumuladas no equivale a personas únicas: una misma persona puede asistir a varios encuentros.
-      </p>
-    </div>
-  )
-}
-
 const fullDate = (s: string) => (s ? s.split('-').reverse().join('/') : '')
 
 function OfficialHeader() {
@@ -1321,7 +1149,19 @@ function OfficialHeader() {
   )
 }
 
-function OfficialClosing({ pastor, secretary }: Pick<DocumentData, 'pastor' | 'secretary'>) {
+function OfficialFoot() {
+  return (
+    <footer className="ofi-foot">
+      <div className="ofi-band-words" aria-hidden="true">
+        {[0, 1].map(row => <span key={row}>{'URUGUAY'.repeat(8)}</span>)}
+      </div>
+      <span>{NATIONAL_FOOTER.address}</span>
+      <span>{NATIONAL_FOOTER.phone}<br />{NATIONAL_FOOTER.email}</span>
+    </footer>
+  )
+}
+
+function OfficialClosing({ pastor, secretary, edit }: Pick<DocumentData, 'pastor' | 'secretary'> & { edit?: DocumentEdit }) {
   return (
     <div className="ofi-closing">
       <div className="ofi-signatures">
@@ -1332,51 +1172,245 @@ function OfficialClosing({ pastor, secretary }: Pick<DocumentData, 'pastor' | 's
         </div>
         <div>
           <i aria-hidden="true" />
-          <strong>{secretary || ' '}</strong>
+          <strong>
+            {edit ? (
+              <input
+                className="ofi-input"
+                aria-label="Nombre de la secretaría local"
+                placeholder="Nombre de quien firma"
+                value={secretary}
+                onChange={e => edit.text('secretary', e.target.value)}
+              />
+            ) : secretary || ' '}
+          </strong>
           <span>SECRETARÍA LOCAL</span>
         </div>
       </div>
-      <footer className="ofi-foot">
-        <div className="ofi-band-words" aria-hidden="true">
-          {[0, 1].map(row => <span key={row}>{'URUGUAY'.repeat(8)}</span>)}
-        </div>
-        <span>{NATIONAL_FOOTER.address}</span>
-        <span>{NATIONAL_FOOTER.phone}<br />{NATIONAL_FOOTER.email}</span>
-      </footer>
+      <OfficialFoot />
     </div>
   )
 }
 
-function DocumentPages(data: DocumentData & { only?: number }) {
-  const { metrics, pages, only, kind, period } = data
+const SENT_STATUSES = ['Enviado', 'Recibido', 'Revisado', 'Confirmado']
+const CONFIRMED_STATUSES = ['Recibido', 'Revisado', 'Confirmado']
+
+// Hoja oficial que imprime la Administración Nacional: el estado de los informes de cada congregación en el mes.
+function NationalSummaryDocument({ state, month }: { state: State; month: string }) {
+  const monthly = reportPeriod('monthly', month)
+  const quarterly = reportPeriod('quarterly', month)
+  const rows = (state.churches || [])
+    .filter(c => c.isPreachingPlace !== 'Sí')
+    .map(ch => {
+      const mRep = state.monthlyReports.find(r => r.churchId === ch.id && r.month === monthly.key && (r.reportType || 'monthly') === 'monthly')
+      const qRep = state.monthlyReports.find(r => r.churchId === ch.id && r.month === quarterly.key && r.reportType === 'quarterly')
+      const source = reportSourceData(state, ch.id, monthly).metrics
+      return {
+        ch,
+        monthly: mRep?.status || 'Pendiente',
+        quarterly: qRep?.status || 'Sin entrega',
+        encounters: Number(mRep?.metrics?.encounters ?? source.encounters),
+        attendance: Number(mRep?.metrics?.attendance ?? source.attendance),
+        income: source.income,
+        expenses: source.expenses
+      }
+    })
+  const sent = rows.filter(r => SENT_STATUSES.includes(r.monthly)).length
+  const confirmed = rows.filter(r => CONFIRMED_STATUSES.includes(r.monthly)).length
+  const total = (key: 'encounters' | 'attendance' | 'income' | 'expenses') => rows.reduce((sum, r) => sum + r[key], 0)
+  const monthName = new Date(`${monthly.key}-01T12:00:00`).toLocaleDateString('es-UY', { month: 'long', year: 'numeric' }).toUpperCase()
+  return (
+    <article className="paper-page ofi-page">
+      <OfficialHeader />
+      <div className="ofi-body">
+        <h2 className="ofi-title"><b>RESUMEN NACIONAL</b> DE INFORMES</h2>
+        <div className="ofi-place">
+          <span className="ofi-tag">MES</span>
+          <span className="ofi-value">{monthName}</span>
+          <span className="ofi-tag">FECHA</span>
+          <span className="ofi-value">{fullDate(today())}</span>
+        </div>
+        <ul className="ofi-counts">
+          <li><span>Número de <b>congregaciones</b></span><strong>{rows.length}</strong></li>
+          <li><span>Informes mensuales <b>enviados</b></span><strong>{sent} de {rows.length}</strong></li>
+          <li><span>Informes <b>confirmados</b> por Secretaría Nacional</span><strong>{confirmed}</strong></li>
+          <li><span>Informes <b>pendientes u observados</b></span><strong>{rows.length - sent}</strong></li>
+        </ul>
+        <table className="ofi-summary">
+          <colgroup>
+            <col style={{ width: '26%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '14%' }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Congregación</th>
+              <th>Mensual</th>
+              <th>Cuatrim.</th>
+              <th className="num">Encuentros</th>
+              <th className="num">Asistencia</th>
+              <th className="num">Ingresos</th>
+              <th className="num">Egresos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.ch.id}>
+                <td>
+                  <strong>{r.ch.name}</strong>
+                  <small>{r.ch.pastor || 'Pastor por asignar'}</small>
+                </td>
+                <td className={SENT_STATUSES.includes(r.monthly) ? 'ofi-ok' : 'ofi-due'}>{r.monthly}</td>
+                <td>{r.quarterly}</td>
+                <td className="num">{r.encounters}</td>
+                <td className="num">{r.attendance}</td>
+                <td className="num">{money(r.income)}</td>
+                <td className="num">{money(r.expenses)}</td>
+              </tr>
+            ))}
+            {!rows.length && (
+              <tr><td colSpan={7}>Todavía no hay congregaciones registradas.</td></tr>
+            )}
+          </tbody>
+          {rows.length > 1 && (
+            <tfoot>
+              <tr>
+                <td>Total nacional</td>
+                <td colSpan={2}>{sent} de {rows.length} enviados</td>
+                <td className="num">{total('encounters')}</td>
+                <td className="num">{total('attendance')}</td>
+                <td className="num">{money(total('income'))}</td>
+                <td className="num">{money(total('expenses'))}</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+        <p className="ofi-summary-note">
+          Ingresos y egresos sin diezmos, calculados con lo anotado en el Portal. Cuatrimestre {quarterly.key}.
+        </p>
+      </div>
+      <div className="ofi-closing">
+        <div className="ofi-signatures single">
+          <div>
+            <i aria-hidden="true" />
+            <strong> </strong>
+            <span>SECRETARÍA NACIONAL</span>
+          </div>
+        </div>
+        <OfficialFoot />
+      </div>
+    </article>
+  )
+}
+
+export const PRINT_NATIONAL_SUMMARY = 'portal:print-national-summary'
+
+// Lo que se puede cambiar escribiendo directamente sobre la hoja oficial.
+type TextField = 'place' | 'pastor' | 'license' | 'secretary' | 'summary'
+type DocumentEdit = {
+  text: (field: TextField, value: string) => void
+  metric: (key: string, value: number) => void
+  page: (index: number, change: Partial<Page>) => void
+  addPhotos: (files: FileList | null, index: number) => void
+  removePage: (index: number) => void
+  photoBusy: boolean
+}
+
+// Gráficos del anexo con el mismo estilo de la planilla: barras de dinero y columnas de asistencia.
+function OfficialCharts({ metrics, events, attendance }: Pick<DocumentData, 'metrics' | 'events' | 'attendance'>) {
+  const income = Number(metrics.income || 0)
+  const expenses = Number(metrics.expenses || 0)
+  const moneyMax = Math.max(1, income, expenses)
+  const lists = events
+    .filter(event => attendance.some(list => list.eventId === event.id))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .map(event => ({
+      label: fullDate(event.date).slice(0, 5),
+      total: attendance
+        .filter(list => list.eventId === event.id)
+        .reduce((sum, list) => sum + (list.people?.length || 0) + Number(list.visitors || 0), 0)
+    }))
+    .slice(-12)
+  const attendanceMax = Math.max(1, ...lists.map(list => list.total))
+  return (
+    <div className="ofi-charts">
+      <h3 className="ofi-chart-title"><b>INGRESOS Y EGRESOS</b> DEL PERÍODO</h3>
+      {([['Ingresos', income, ''], ['Egresos', expenses, 'out']] as const).map(([name, value, tone]) => (
+        <div className="ofi-hbar" key={name}>
+          <span>{name}</span>
+          <i><b className={tone} style={{ width: `${(value / moneyMax) * 100}%` }} /></i>
+          <strong>{money(value)}</strong>
+        </div>
+      ))}
+      <h3 className="ofi-chart-title"><b>ASISTENCIA</b> POR ENCUENTRO</h3>
+      {lists.length ? (
+        <div className="ofi-columns">
+          {lists.map((list, i) => (
+            <div key={i}>
+              <strong>{list.total}</strong>
+              <i style={{ height: `${Math.max(4, (list.total / attendanceMax) * 100)}%` }} />
+              <span>{list.label}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="ofi-note">No hay listas de asistencia en el período.</p>
+      )}
+    </div>
+  )
+}
+
+function DocumentPages(data: DocumentData & { only?: number; edit?: DocumentEdit }) {
+  const { metrics, pages, only, kind, period, edit } = data
   const averageTotal = officialAverages.reduce((sum, [key]) => sum + Number(metrics[key] || 0), 0)
   const periodLabel = kind === 'monthly'
     ? new Date(`${period.key}-01T12:00:00`).toLocaleDateString('es-UY', { month: 'long' }).toUpperCase()
     : `${fullDate(period.from)} AL ${fullDate(period.to)}`
+  // Al editar, cada dato es un campo dentro de su misma caja; al imprimir, es texto.
+  const text = (field: TextField, value: string, placeholder: string) =>
+    edit ? (
+      <input className="ofi-input" aria-label={placeholder} placeholder={placeholder} value={value} onChange={e => edit.text(field, e.target.value)} />
+    ) : value
+  const number = (key: string, asMoney = false) =>
+    edit ? (
+      <input
+        className="ofi-input ofi-number"
+        type="number"
+        min="0"
+        step={asMoney ? '.01' : '1'}
+        inputMode={asMoney ? 'decimal' : 'numeric'}
+        aria-label={metricLabels[key]}
+        value={metrics[key] || 0}
+        onChange={e => edit.metric(key, Math.max(0, Number(e.target.value) || 0))}
+      />
+    ) : asMoney ? money(metrics[key] || 0) : metrics[key] || 0
   return (
     <>
       {(only === undefined || only === 0) && (
-        <article className="paper-page ofi-page">
+        <article className={`paper-page ofi-page${edit ? ' ofi-editing' : ''}`}>
           <OfficialHeader />
           <div className="ofi-body">
             <h2 className="ofi-title"><b>INFORME {kind === 'monthly' ? 'MENSUAL' : 'CUATRIMESTRAL'}</b> CONGREGACIONAL</h2>
             <div className="ofi-place">
               <span className="ofi-tag">LUGAR</span>
-              <span className="ofi-value">{data.place}</span>
+              <span className="ofi-value">{text('place', data.place, 'Ciudad')}</span>
               <span className="ofi-tag">FECHA</span>
               <span className="ofi-value">{fullDate(data.reportDate)}</span>
             </div>
             <dl className="ofi-rows">
               <div><dt>{kind === 'monthly' ? 'MES' : 'PERÍODO'}</dt><dd>{periodLabel}</dd></div>
               <div><dt>CONGREGACIÓN</dt><dd><b>{data.churchName.toUpperCase()}</b></dd></div>
-              <div><dt>PASTOR</dt><dd><b>{data.pastor}</b></dd></div>
-              <div><dt>LICENCIA</dt><dd>{data.license}</dd></div>
+              <div><dt>PASTOR</dt><dd><b>{text('pastor', data.pastor, 'Nombre del pastor')}</b></dd></div>
+              <div><dt>LICENCIA</dt><dd>{text('license', data.license, 'Ej. Ordenación')}</dd></div>
             </dl>
             <ul className="ofi-counts">
               {officialCounts.map(([key, before, bold, after]) => (
                 <li key={key}>
                   <span>{before}<b>{bold}</b>{after}</span>
-                  <strong>{metrics[key] || 0}</strong>
+                  <strong>{number(key)}</strong>
                 </li>
               ))}
             </ul>
@@ -1386,71 +1420,129 @@ function DocumentPages(data: DocumentData & { only?: number }) {
                 <tr>{officialAverages.map(([key, label]) => <th key={key}>{label}</th>)}<th>TOTAL</th></tr>
               </thead>
               <tbody>
-                <tr>{officialAverages.map(([key]) => <td key={key}>{metrics[key] || 0}</td>)}<td>{averageTotal}</td></tr>
+                <tr>{officialAverages.map(([key]) => <td key={key}>{number(key)}</td>)}<td>{averageTotal}</td></tr>
               </tbody>
             </table>
           </div>
-          {!pages.length && <OfficialClosing {...data} />}
         </article>
       )}
       {pages.map(
         (p, i) =>
           (only === undefined || only === i + 1) && (
-            <article className="paper-page ofi-page ofi-activity" key={i}>
+            <article className={`paper-page ofi-page ofi-activity${edit ? ' ofi-editing' : ''}`} key={i}>
               <div className="ofi-body">
                 <h2 className="ofi-title light">ACTIVIDADES <b>DESTACADAS</b></h2>
                 <div className="ofi-activity-head">
                   <span>{i + 1}</span>
-                  <h3>{(p.title || 'Actividad').toUpperCase()}</h3>
+                  <h3>
+                    {edit ? (
+                      <input
+                        className="ofi-input ofi-upper"
+                        aria-label="Título de la actividad"
+                        placeholder="TÍTULO DE LA ACTIVIDAD"
+                        maxLength={160}
+                        value={p.title}
+                        onChange={e => edit.page(i, { title: e.target.value })}
+                      />
+                    ) : (p.title || 'Actividad').toUpperCase()}
+                  </h3>
                 </div>
-                <p className="ofi-activity-text">{p.body || ' '}</p>
+                {edit ? (
+                  <textarea
+                    className="ofi-activity-text ofi-input"
+                    aria-label="Qué se hizo en la actividad"
+                    placeholder="Contá qué se hizo, cuándo, quiénes participaron y cómo resultó…"
+                    maxLength={6000}
+                    value={p.body}
+                    onChange={e => edit.page(i, { body: e.target.value })}
+                  />
+                ) : (
+                  <p className="ofi-activity-text">{p.body || ' '}</p>
+                )}
                 {p.photos.length > 0 && (
                   <div className={`ofi-photos n${p.photos.length}`}>
                     {p.photos.map((photo, j) => (
-                      <img key={j} src={photo} alt={`Fotografía ${j + 1} de ${p.title}`} />
+                      <figure key={j}>
+                        <img src={photo} alt={`Fotografía ${j + 1} de ${p.title}`} />
+                        {edit && (
+                          <button
+                            type="button"
+                            className="ofi-photo-remove"
+                            aria-label={`Quitar fotografía ${j + 1}`}
+                            onClick={() => edit.page(i, { photos: p.photos.filter((_, k) => k !== j) })}
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
+                      </figure>
                     ))}
                   </div>
                 )}
+                {edit && (
+                  <div className="ofi-edit-tools">
+                    {p.photos.length < 4 && (
+                      <label className="ofi-photo-add">
+                        <ImagePlus size={20} />
+                        <span>{edit.photoBusy ? 'Preparando fotos…' : `Agregar fotos (${p.photos.length} de 4)`}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          disabled={edit.photoBusy}
+                          onChange={e => {
+                            edit.addPhotos(e.target.files, i)
+                            e.target.value = ''
+                          }}
+                        />
+                      </label>
+                    )}
+                    <button type="button" className="secondary-action" onClick={() => edit.removePage(i)}>
+                      Quitar esta actividad
+                    </button>
+                  </div>
+                )}
               </div>
-              {i === pages.length - 1 && <OfficialClosing {...data} />}
             </article>
           )
       )}
       {(only === undefined || only === pages.length + 1) && (
-        <article className="paper-page">
-          <DocumentHeading {...data} />
-          <div className="paper-section-heading">
-            <span>Anexo</span>
-            <h3>Datos registrados en el Portal</h3>
-          </div>
-          <table className="paper-table">
-            <tbody>
+        <article className={`paper-page ofi-page ofi-activity ofi-annex${edit ? ' ofi-editing' : ''}`}>
+          <div className="ofi-body">
+            <h2 className="ofi-title light"><b>ANEXO</b> · DATOS DEL PORTAL</h2>
+            <ul className="ofi-counts wide">
               {annexKeys.map(key => (
-                <tr key={key}>
-                  <th>{metricLabels[key]}</th>
-                  <td>{['income', 'expenses'].includes(key) ? money(metrics[key] || 0) : metrics[key] || 0}</td>
-                </tr>
+                <li key={key}>
+                  <span>{metricLabels[key]}</span>
+                  <strong>{number(key, ['income', 'expenses'].includes(key))}</strong>
+                </li>
               ))}
-              <tr className="paper-total">
-                <th>Resultado del período (sin diezmos)</th>
-                <td>{money((metrics.income || 0) - (metrics.expenses || 0))}</td>
-              </tr>
-            </tbody>
-          </table>
-          {data.changedTotals && (
-            <p className="paper-help">La planilla contiene ajustes manuales respecto de los registros originales.</p>
-          )}
-          {data.summary && (
-            <>
-              <h4>Observaciones generales</h4>
-              <p className="paper-prose">{data.summary}</p>
-            </>
-          )}
-          <ReportGraphs {...data} />
-          <footer className="paper-footer">
-            <span>Fuente: registros del Portal Nacional</span>
-            <span>{pages.length + 2}</span>
-          </footer>
+              <li>
+                <span><b>Resultado del período</b> (sin diezmos)</span>
+                <strong className="ofi-result">{money((metrics.income || 0) - (metrics.expenses || 0))}</strong>
+              </li>
+            </ul>
+            {data.changedTotals && <p className="ofi-note">La planilla tiene cifras corregidas a mano respecto de lo anotado en el Portal.</p>}
+            {(data.summary || edit) && (
+              <>
+                <h3 className="ofi-chart-title"><b>OBSERVACIONES</b> GENERALES</h3>
+                {edit ? (
+                  <textarea
+                    className="ofi-activity-text ofi-notes ofi-input"
+                    aria-label="Observaciones generales del informe"
+                    placeholder="Avances, necesidades o algo que quieras contar del período (opcional)…"
+                    maxLength={4000}
+                    value={data.summary}
+                    onChange={e => edit.text('summary', e.target.value)}
+                  />
+                ) : (
+                  <p className="ofi-activity-text ofi-notes">{data.summary}</p>
+                )}
+              </>
+            )}
+            <OfficialCharts {...data} />
+          </div>
+          {/* Las firmas van una sola vez, al final del informe. */}
+          <OfficialClosing {...data} edit={edit} />
         </article>
       )}
     </>

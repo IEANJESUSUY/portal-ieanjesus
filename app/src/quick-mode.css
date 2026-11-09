@@ -424,6 +424,72 @@
 .people-sort { display: grid; gap: 4px; font-weight: 700; color: var(--muted); font-size: .9rem; }
 .people-sort select { min-height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--qm-navy); font-weight: 700; }
 .birthday-hint { display: block; margin-top: 2px; color: #a0670c; font-weight: 700; }
+
+/* Servicios fijos del mes en Dinero */
+.fixed-expenses { margin: 0 0 18px; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: #fff; }
+.fixed-expenses-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.fixed-expenses-head h3 { margin: 2px 0 0; color: var(--qm-navy); font-size: 1.1rem; }
+.fixed-expenses .count-pill.warn { background: #fff1df; color: #8a4b0c; }
+.fixed-expenses-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.crm .fixed-expense {
+  display: grid; gap: 2px; justify-items: start; min-height: 64px; padding: 10px 12px; text-align: left;
+  border: 1px dashed #c4d2e6; border-radius: 14px; background: #f7f9fd; color: var(--qm-navy); cursor: pointer;
+}
+.crm .fixed-expense strong { font-size: 15px; }
+.crm .fixed-expense span { color: #8a4b0c; font-size: 13.5px; font-weight: 700; }
+.crm .fixed-expense.done { border-style: solid; border-color: #b7e0c5; background: #effaf3; }
+.crm .fixed-expense.done span { color: #126b3a; }
+.crm .fixed-expense.other span { color: #5b6f82; font-weight: 600; }
+.qm-chip-hint { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; opacity: .7; }
+
+/* Importar personas del formulario de Google */
+.people-import-backdrop {
+  position: fixed; inset: 0; z-index: 1500; display: grid; place-items: center; padding: 16px;
+  background: rgba(12, 36, 75, .45);
+}
+.people-import {
+  display: flex; flex-direction: column; gap: 14px; width: min(640px, 100%); max-height: calc(100dvh - 32px);
+  padding: 20px; overflow: auto; border-radius: 20px; background: #fff; box-shadow: 0 20px 60px rgba(12, 36, 75, .3);
+  animation: qm-pop-card .22s ease-out;
+}
+.people-import header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.people-import h2 { margin: 2px 0 0; color: var(--qm-navy); font-size: 1.35rem; }
+.people-import-close { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 12px; background: #fff; cursor: pointer; }
+.people-import-steps { display: grid; gap: 8px; margin: 0; padding-left: 22px; color: #34465f; font-size: 15px; line-height: 1.45; }
+.people-import-file {
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 72px; padding: 14px;
+  border: 2px dashed #9fb3d6; border-radius: 16px; background: #f5f8fd; color: var(--qm-navy); font-size: 16px; font-weight: 800; cursor: pointer;
+}
+.people-import-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.people-import-summary { display: flex; flex-wrap: wrap; gap: 8px; }
+.people-import-summary span { padding: 6px 12px; border-radius: 999px; background: #eef3fb; color: var(--qm-navy); font-weight: 700; font-size: 14px; }
+.people-import-summary .ok { background: #e6f6ec; color: #126b3a; }
+.people-import-summary .warn { background: #fff1df; color: #8a4b0c; }
+.people-import-list { display: grid; gap: 6px; max-height: 46dvh; margin: 0; padding: 0; overflow: auto; list-style: none; }
+.people-import-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 12px;
+}
+.people-import-list li div { display: grid; gap: 2px; min-width: 0; }
+.people-import-list strong { color: #12305a; font-size: 15px; }
+.people-import-list small { color: #5b6f82; font-size: 13.5px; }
+.people-import-tag { flex: none; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: #e6f6ec; color: #126b3a; }
+.people-import-list li:not(.nueva) { background: #fafbfd; }
+.people-import-list li:not(.nueva) .people-import-tag { background: #eef1f5; color: #5b6f82; }
+.people-import-list li.sin-permiso .people-import-tag, .people-import-list li.incompleta .people-import-tag { background: #fff1df; color: #8a4b0c; }
+.people-import-check { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 12px; background: #fffbea; font-size: 15px; }
+.people-import-check input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+.people-import-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.people-import-done { display: grid; justify-items: center; gap: 10px; padding: 12px 0; text-align: center; color: #126b3a; }
+.people-import-done strong { color: var(--qm-navy); font-size: 18px; }
+.people-import-done p { margin: 0; color: #5b6f82; font-size: 15px; }
+.people-import-error { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: 12px; background: #fdecea; color: #9b2c1f; font-size: 14.5px; }
+@media (max-width: 700px) {
+  .people-import-backdrop { align-items: end; padding: 0; }
+  .people-import { width: 100%; max-height: 92dvh; border-radius: 22px 22px 0 0; }
+  .people-import-actions { display: grid; }
+  .people-import-actions button { width: 100%; min-height: 48px; }
+}
 @media (max-width: 700px) {
   .people-tools { display: grid; }
   .people-tools .people-show button { font-size: 15px; padding: 0 12px; }

@@ -40,19 +40,24 @@ import {
   LOCAL_COMMITTEES,
   DEFAULT_AGE_RANGES
 } from '../shared/catalog.mjs'
-import { localApi } from './local-data'
+import { empty as emptyState, localApi } from './local-data'
+import { CloudLogin } from './components/CloudLogin'
+import { UsersAdmin } from './components/UsersAdmin'
 import { createDemoState } from './demo-data'
 import { OperationalHome } from './components/OperationalHome'
-import { ReportHub } from './components/ReportStudio'
+import { PRINT_NATIONAL_SUMMARY, ReportHub } from './components/ReportStudio'
 import { CalendarModule, CalendarPreviewCard, EventModal } from './components/CalendarModule'
 import { whatsappLink } from './whatsapp'
 import { useTableLabels } from './useTableLabels'
+import { cloudApi, cloudEnabled } from './cloud'
+import { EXPENSE_ITEMS, FIXED_EXPENSES, expenseItemOf } from './finance'
 import { LocalChurchCommitteesView, NationalAdminCommitteesView } from './components/CommitteesModule'
 import { QuickMode, requestQuickFlow } from './components/QuickMode'
 import { LocalRequests } from './components/LocalRequests'
 import { SectionTabs } from './components/SectionTabs'
 
-import { type Row, type State, money, today, label, normalizeText, formatDate, plural, committeeLabel, findPossibleDuplicates, lastDateForWeekday, WEEKDAYS, compressPhoto } from './utils'
+import { type Row, type State, money, today, label, normalizeText, formatDate, plural, committeeLabel, findPossibleDuplicates, lastDateForWeekday, WEEKDAYS, compressPhoto, parseCsv } from './utils'
+import { PeopleImport } from './components/PeopleImport'
 type Field = { key: string; label: string; type: string; required: boolean; options: string[] }
 const catalog = definitions as Record<string, { title: string; fields: Field[] }>
 const routes: Record<string, string> = {
@@ -60,31 +65,6 @@ const routes: Record<string, string> = {
   '/personas': 'people',
   '/familias': 'families',
   '/finanzas': 'transactions'
-}
-
-function parseCsv(text: string) {
-  const rows: string[][] = []
-  let row: string[] = []
-  let value = ''
-  let quoted = false
-  const delimiter = (text.split(/\r?\n/, 1)[0].match(/;/g)?.length || 0) > (text.split(/\r?\n/, 1)[0].match(/,/g)?.length || 0) ? ';' : ','
-  for (let index = 0; index < text.length; index++) {
-    const char = text[index]
-    if (char === '"' && quoted && text[index + 1] === '"') { value += '"'; index++; continue }
-    if (char === '"') { quoted = !quoted; continue }
-    if (char === delimiter && !quoted) { row.push(value.trim()); value = ''; continue }
-    if ((char === '\n' || char === '\r') && !quoted) {
-      if (char === '\r' && text[index + 1] === '\n') index++
-      row.push(value.trim()); value = ''
-      if (row.some(Boolean)) rows.push(row)
-      row = []
-      continue
-    }
-    value += char
-  }
-  row.push(value.trim())
-  if (row.some(Boolean)) rows.push(row)
-  return rows
 }
 
 function parseLocalNumber(value: unknown) {
@@ -152,6 +132,8 @@ function resolveWorkspaceId(churches: Row[], workspace?: { id?: string; name?: s
 }
 
 async function api(path: string, body?: unknown) {
+  // Con la base central configurada, todo se guarda allá; si no, en este dispositivo.
+  if (cloudEnabled()) return cloudApi(path, body)
   if (location.protocol === 'file:') return localApi(path, body)
   const response = await fetch(path === 'restore' ? '/api/restore' : `/api/${path}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined)
   const result = await response.json()
@@ -879,7 +861,16 @@ function PersonModal({
               </label>
 
               <label>
-                <span>Dirección</span>
+                <span>Barrio</span>
+                <input
+                  aria-label="Barrio"
+                  value={draft.neighborhood || ''}
+                  onChange={e => setDraft(d => ({ ...d, neighborhood: e.target.value }))}
+                />
+              </label>
+
+              <label>
+                <span>Dirección (opcional)</span>
                 <input
                   aria-label="Dirección"
                   value={draft.address || ''}
@@ -888,15 +879,33 @@ function PersonModal({
               </label>
 
               <label>
-                <span>Fecha de bautismo</span>
-                <input
-                  type="date"
-                  aria-label="Fecha de bautismo"
-                  max={today()}
-                  value={draft.baptism || ''}
-                  onChange={e => setDraft(d => ({ ...d, baptism: e.target.value }))}
-                />
+                <span>¿Está bautizado/a?</span>
+                <select
+                  aria-label="¿Está bautizado/a?"
+                  value={draft.baptized || (draft.baptism ? 'Sí' : '')}
+                  onChange={e => setDraft(d => ({ ...d, baptized: e.target.value, ...(e.target.value === 'No' ? { baptism: '', baptismPrecision: '' } : {}) }))}
+                >
+                  <option value="">Sin dato</option>
+                  <option value="Sí">Sí</option>
+                  <option value="No">No</option>
+                </select>
               </label>
+
+              {(draft.baptized === 'Sí' || draft.baptism) && (
+                <label>
+                  <span>Fecha de bautismo</span>
+                  <input
+                    type="date"
+                    aria-label="Fecha de bautismo"
+                    max={today()}
+                    value={draft.baptism || ''}
+                    onChange={e => setDraft(d => ({ ...d, baptized: 'Sí', baptism: e.target.value, baptismPrecision: e.target.value ? 'Exacta' : '' }))}
+                  />
+                  {draft.baptismPrecision === 'Solo año' && (
+                    <small>Fecha aproximada: solo se sabe el año. Si sabés el día, cambiala acá.</small>
+                  )}
+                </label>
+              )}
 
               <label>
                 <span>Responsabilidad</span>
@@ -1036,14 +1045,17 @@ function FinanceMovementModal({
         || (state.churches.length === 1 ? state.churches[0].id : '')
       if (!resolvedChurchId && !committeeKey) throw new Error('No se pudo identificar la congregación activa. Cierra sesión y vuelve a ingresar al espacio local.')
       const isTithe = draft.direction === 'Ingreso' && draft.category === 'Diezmo'
+      const isExpense = draft.direction === 'Egreso'
+      const expenseItem = isExpense ? expenseItemOf(draft) : ''
       const toSave = {
         ...draft,
-        name: isTithe ? 'Cierre general de diezmos' : draft.name || draft.description || 'Movimiento',
-        description: isTithe ? 'Cierre general de diezmos' : draft.name || draft.description || '',
+        category: isExpense ? 'Gasto' : draft.category,
+        name: isTithe ? 'Cierre general de diezmos' : draft.name || draft.description || expenseItem || 'Movimiento',
+        description: isTithe ? 'Cierre general de diezmos' : draft.name || draft.description || expenseItem || '',
         reference: isTithe ? '' : draft.reference || '',
         receiptPhoto: isTithe ? '' : draft.receiptPhoto || '',
         groupId: isTithe ? '' : draft.groupId || '',
-        subCategory: isTithe ? '' : draft.subCategory || '',
+        subCategory: isTithe ? '' : isExpense ? expenseItem : draft.subCategory || '',
         committeeKey: isTithe ? '' : committeeKey || draft.committeeKey || '',
         churchId: resolvedChurchId,
         financialStatus: draft.financialStatus || 'Registrado'
@@ -1110,24 +1122,41 @@ function FinanceMovementModal({
         </label>
 
         <div className="record-fields finance-brief-fields">
-          <label>
-            <span>Concepto *</span>
-            <select
-              required
-              aria-label="Concepto *"
-              value={draft.category || 'Ofrenda'}
-              onChange={e => setDraft(d => ({ ...d, category: e.target.value }))}
-            >
-              {(draft.direction === 'Egreso' ? ['Gasto', 'Otro'] : ['Diezmo', 'Ofrenda', 'Donación', 'Otro'])
-                .concat([draft.category].filter(c => c && !['Diezmo', 'Ofrenda', 'Donación', 'Gasto', 'Otro'].includes(c)))
-                .map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </label>
+          {draft.direction === 'Egreso' ? (
+            // Los gastos se anotan por rubro: así se controlan luz, agua, internet y demás servicios mes a mes.
+            <label>
+              <span>Rubro del gasto *</span>
+              <select
+                required
+                aria-label="Rubro del gasto *"
+                value={expenseItemOf(draft)}
+                onChange={e => setDraft(d => ({ ...d, category: 'Gasto', subCategory: e.target.value }))}
+              >
+                {EXPENSE_ITEMS.map(item => (
+                  <option key={item.label} value={item.label}>{item.label}{item.hint ? ` (${item.hint})` : ''}</option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label>
+              <span>Concepto *</span>
+              <select
+                required
+                aria-label="Concepto *"
+                value={draft.category || 'Ofrenda'}
+                onChange={e => setDraft(d => ({ ...d, category: e.target.value }))}
+              >
+                {['Diezmo', 'Ofrenda', 'Donación', 'Otro']
+                  .concat([draft.category].filter(c => c && !['Diezmo', 'Ofrenda', 'Donación', 'Gasto', 'Otro'].includes(c)))
+                  .map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+          )}
 
           <label>
-            <span>{draft.category === 'Diezmo' ? 'Movimiento general' : 'Descripción o referencia *'}</span>
+            <span>{draft.category === 'Diezmo' ? 'Movimiento general' : draft.direction === 'Egreso' ? 'Detalle (opcional)' : 'Descripción o referencia *'}</span>
             <input
-              required={draft.category !== 'Diezmo'}
+              required={draft.category !== 'Diezmo' && draft.direction !== 'Egreso'}
               disabled={draft.category === 'Diezmo'}
               aria-label={draft.category === 'Diezmo' ? 'Movimiento general' : 'Descripción o referencia *'}
               placeholder={draft.direction === 'Ingreso' ? 'Ej. Ofrenda del culto del domingo' : 'Ej. Compra de alimentos, pago de electricidad'}
@@ -1187,12 +1216,14 @@ function FinanceMovementModal({
           {draft.category !== 'Diezmo' && (
             <label>
               <span>Comité, grupo o destino relacionado (opcional)</span>
+              {/* En los gastos, subCategory guarda el rubro; acá solo se elige el grupo. */}
               <select
-                value={draft.groupId || draft.subCategory || ''}
+                value={draft.groupId || (draft.direction === 'Egreso' ? '' : draft.subCategory) || ''}
                 onChange={e => {
                   const val = e.target.value
                   const groupMatch = availableGroups.find(g => g.id === val)
-                  if (groupMatch) setDraft(d => ({ ...d, groupId: groupMatch.id, subCategory: groupMatch.name }))
+                  if (draft.direction === 'Egreso') setDraft(d => ({ ...d, groupId: groupMatch?.id || '' }))
+                  else if (groupMatch) setDraft(d => ({ ...d, groupId: groupMatch.id, subCategory: groupMatch.name }))
                   else setDraft(d => ({ ...d, groupId: '', subCategory: val }))
                 }}
               >
@@ -1202,9 +1233,11 @@ function FinanceMovementModal({
                     {availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </optgroup>
                 )}
-                <optgroup label="Comités y áreas oficiales">
-                  {LOCAL_COMMITTEES.map(c => <option key={c} value={c}>{c}</option>)}
-                </optgroup>
+                {draft.direction !== 'Egreso' && (
+                  <optgroup label="Comités y áreas oficiales">
+                    {LOCAL_COMMITTEES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </optgroup>
+                )}
               </select>
             </label>
           )}
@@ -1294,15 +1327,17 @@ function FinanceMovementModal({
               </select>
             </label>
 
-            <label>
-              <span>Subcategoría o destino específico</span>
-              <input
-                aria-label="Subcategoría o destino"
-                placeholder="Ej. Ofrenda de damas, Pintura salón"
-                value={draft.subCategory || ''}
-                onChange={e => setDraft(d => ({ ...d, subCategory: e.target.value }))}
-              />
-            </label>
+            {draft.direction !== 'Egreso' && (
+              <label>
+                <span>Subcategoría o destino específico</span>
+                <input
+                  aria-label="Subcategoría o destino"
+                  placeholder="Ej. Ofrenda de damas, ofrenda misionera"
+                  value={draft.subCategory || ''}
+                  onChange={e => setDraft(d => ({ ...d, subCategory: e.target.value }))}
+                />
+              </label>
+            )}
 
             <label>
               <span>Referencia textual del comprobante</span>
@@ -1555,14 +1590,21 @@ const PEOPLE_SORT: { key: PeopleSort; label: string }[] = [
 
 const isVisitStatus = (p: Row) => ['Amigo', 'Visita', 'Seguimiento'].includes(p.status)
 const hasDate = (value: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))
+// Bautizado: lo dijo la persona (aunque no recuerde la fecha) o tiene fecha de bautismo.
+const isBaptized = (p: Row) => p.baptized === 'Sí' || (p.baptized !== 'No' && hasDate(p.baptism))
+
+function baptismLabel(p: Row) {
+  if (hasDate(p.baptism)) return p.baptismPrecision === 'Solo año' ? `${p.baptism.slice(0, 4)} (aprox.)` : formatDate(p.baptism)
+  return p.baptized === 'Sí' ? 'Sí, sin fecha' : p.baptized === 'No' ? 'No' : '—'
+}
 
 function peopleShowFilter(show: PeopleShow) {
   return (p: Row) =>
     show === 'Todos' ||
     (show === 'De la iglesia' && !isVisitStatus(p) && p.status !== 'Inactivo') ||
     (show === 'Visitas' && isVisitStatus(p)) ||
-    (show === 'Bautizados' && hasDate(p.baptism)) ||
-    (show === 'Sin bautizar' && !hasDate(p.baptism))
+    (show === 'Bautizados' && isBaptized(p)) ||
+    (show === 'Sin bautizar' && !isBaptized(p))
 }
 
 // Días que faltan para el próximo cumpleaños (0 = hoy).
@@ -1614,6 +1656,56 @@ function birthdayHint(days: number | null) {
   return `Cumple en ${days} días`
 }
 
+// Servicios fijos del mes (luz, agua, internet…): cuáles ya se anotaron y cuáles faltan.
+function FixedExpensesCard({ rows, onAdd }: { rows: Row[]; onAdd: (item: string) => void }) {
+  const month = today().slice(0, 7)
+  const since = new Date()
+  since.setMonth(since.getMonth() - 3)
+  const sinceKey = since.toLocaleDateString('sv-SE').slice(0, 7)
+  const expenses = rows.filter(r => r.direction === 'Egreso')
+  const items = FIXED_EXPENSES.map(item => {
+    const ofItem = expenses.filter(r => expenseItemOf(r) === item.label)
+    const thisMonth = ofItem.filter(r => String(r.date || '').startsWith(month))
+    const usual = ofItem.some(r => String(r.date || '').slice(0, 7) >= sinceKey)
+    return { item, paid: thisMonth.reduce((sum, r) => sum + Number(r.amount || 0), 0), done: thisMonth.length > 0, usual }
+  })
+  // Se muestran los servicios que la iglesia suele pagar; si todavía no anotó ninguno, todos.
+  const shown = items.some(i => i.usual || i.done) ? items.filter(i => i.usual || i.done) : items
+  const hidden = items.filter(i => !shown.includes(i))
+  const pending = shown.filter(i => !i.done).length
+  return (
+    <section className="fixed-expenses" aria-label="Servicios del mes">
+      <div className="fixed-expenses-head">
+        <div>
+          <span className="eyebrow">Gastos fijos</span>
+          <h3>Servicios de {new Date().toLocaleDateString('es-UY', { month: 'long' })}</h3>
+        </div>
+        <span className={`count-pill${pending ? ' warn' : ''}`}>{pending ? `${pending} por anotar` : 'Todo anotado'}</span>
+      </div>
+      <div className="fixed-expenses-grid">
+        {shown.map(({ item, paid, done }) => (
+          <button
+            key={item.label}
+            type="button"
+            className={`fixed-expense${done ? ' done' : ''}`}
+            onClick={() => onAdd(item.label)}
+            aria-label={done ? `${item.label}: anotado ${money(paid)}. Anotar otro pago` : `Anotar el pago de ${item.label}`}
+          >
+            <strong>{item.label}</strong>
+            <span>{done ? `✓ ${money(paid)}` : 'Anotar pago'}</span>
+          </button>
+        ))}
+        {hidden.length > 0 && (
+          <button type="button" className="fixed-expense other" onClick={() => onAdd(hidden[0].item.label)}>
+            <strong>+ Otro servicio</strong>
+            <span>{hidden.map(i => i.item.label).join(', ')}</span>
+          </button>
+        )}
+      </div>
+    </section>
+  )
+}
+
 // --- Directorio y Listados Comunes (con segmentación por congregación Lote 1 y Lote 2) ---
 
 function Directory({
@@ -1623,6 +1715,7 @@ function Directory({
   query,
   edit,
   onOpenMatcher,
+  onImport,
   committeeKey,
   consolidateParentId,
   readOnly = false,
@@ -1634,6 +1727,7 @@ function Directory({
   query: string
   edit: (c: string, r: Row) => void
   onOpenMatcher?: () => void
+  onImport?: () => void
   committeeKey?: string
   consolidateParentId?: string
   readOnly?: boolean
@@ -1741,6 +1835,11 @@ function Directory({
                   <Search size={17} /> Buscar personas repetidas
                 </button>
               )}
+              {onImport && (
+                <button className="secondary-action" onClick={onImport}>
+                  <Upload size={17} /> Importar del formulario
+                </button>
+              )}
               <button
                 className="secondary-action"
                 onClick={() => edit('people', { id: '', churchId: scope, status: 'Amigo' })}
@@ -1828,6 +1927,13 @@ function Directory({
             </div>
           )}
         </div>
+      )}
+
+      {collection === 'transactions' && scope && !committeeKey && !readOnly && (
+        <FixedExpensesCard
+          rows={baseRows}
+          onAdd={item => edit('transactions', { id: '', churchId: scope, direction: 'Egreso', category: 'Gasto', subCategory: item, financialStatus: 'Registrado', date: today() })}
+        />
       )}
 
       {/* Lote 1 y Lote 2: Primera vista de Finanzas segmentada por congregación */}
@@ -2052,7 +2158,7 @@ function Directory({
                         '—'
                       )}
                     </td>
-                    <td>{hasDate(r.baptism) ? formatDate(r.baptism) : '—'}</td>
+                    <td>{baptismLabel(r)}</td>
                     <td>{r.committeeRole || r.role || '—'}</td>
                     {!scope && <td>{ch?.name || '—'}</td>}
                     <td>
@@ -2073,8 +2179,7 @@ function Directory({
               <tr>
                 <th>Fecha</th>
                 <th>Tipo</th>
-                <th>Concepto</th>
-                <th>Clasificación</th>
+                <th>Concepto o rubro</th>
                 <th>Descripción</th>
                 <th>Importe</th>
                 <th>Comité o destino</th>
@@ -2097,16 +2202,16 @@ function Directory({
                       </span>
                     </td>
                     <td>
-                      <strong>{r.category || '—'}</strong>
+                      <strong>{isIngreso ? r.category || '—' : expenseItemOf(r)}</strong>
+                      {r.accountType && r.accountType !== 'Operación' && <small style={{ display: 'block' }}>{r.accountType}</small>}
                     </td>
-                    <td>{r.accountType || 'Operación'}</td>
                     <td>{isTithe ? 'Cierre general de diezmos' : r.description || r.name || '—'}</td>
                     <td>
                       <strong style={{ color: isIngreso ? '#073b7a' : '#c93b2b', fontSize: '.95rem' }}>
                         {isTithe && !showTitheAmounts ? '••••••' : isIngreso ? '+' + money(Number(r.amount || 0)) : '-' + money(Number(r.amount || 0))}
                       </strong>
                     </td>
-                    <td>{isTithe ? 'General' : committeeLabel(r.committeeKey) || r.groupDestination || r.subCategory || 'General'}</td>
+                    <td>{isTithe ? 'General' : committeeLabel(r.committeeKey) || state.groups.find(g => g.id === r.groupId)?.name || (isIngreso ? r.subCategory : '') || 'General'}</td>
                     <td>
                       {!isTithe && r.receiptPhoto ? (
                         <span
@@ -4036,7 +4141,10 @@ function Reports({
           <button className="secondary-action" onClick={() => downloadExcelWorkbook(state, scope)}>
             <FileSpreadsheet size={17} /> Exportar datos
           </button>
-          <button className="primary-action" onClick={() => window.print()}>
+          <button
+            className="primary-action"
+            onClick={() => (canReview && !scope && !committeeInfo ? window.dispatchEvent(new Event(PRINT_NATIONAL_SUMMARY)) : window.print())}
+          >
             <Printer size={17} /> Imprimir resumen
           </button>
         </div>
@@ -6245,6 +6353,7 @@ export default function CRM({
   const [query, setQuery] = useState('')
   const [editor, setEditor] = useState<{ collection: string; row: Row } | null>(null)
   const [matcherOpen, setMatcherOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [returnFormAssignment, setReturnFormAssignment] = useState<Row | null>(null)
   const [breakdownModal, setBreakdownModal] = useState<{ title: string; txs: Row[] } | null>(null)
   const [consolidatePreaching, setConsolidatePreaching] = useState(false)
@@ -6268,6 +6377,12 @@ export default function CRM({
       setError('')
       return
     }
+    // Con base central, los datos se piden recién después de entrar con usuario y contraseña.
+    if (cloudEnabled() && !currentUser) {
+      setState(emptyState())
+      setError('')
+      return
+    }
     try {
       setState(await api('state'))
       setError('')
@@ -6280,7 +6395,7 @@ export default function CRM({
 
   useEffect(() => {
     load()
-  }, [isDemoMode])
+  }, [isDemoMode, cloudEnabled() ? currentUser?.username : ''])
   useEffect(() => {
     setQuery(new URLSearchParams(location.search).get('q') || '')
   }, [path, location.search])
@@ -6454,6 +6569,7 @@ export default function CRM({
       <main className="people-page">
         <p role="status">{error || 'Abriendo la base de datos…'}</p>
         {error && <button onClick={load}>Reintentar</button>}
+        {error && cloudEnabled() && <button onClick={onLogout}>Volver a entrar</button>}
       </main>
     )
   }
@@ -6474,23 +6590,28 @@ export default function CRM({
             <p>Plataforma de Gestión Congregacional, Comités Nacionales y Supervisión Ministerial</p>
           </div>
 
-          <div className="security-disclaimer official-setup-notice">
-            <strong>Versión oficial · preparación local</strong>
-            <span>Empieza con una base vacía, sin personas ni perfiles de prueba. Los datos quedan en este dispositivo.</span>
-            <span>El acceso institucional seguro y la conexión a la base central aún deben integrarse antes de usar datos reales.</span>
-            <span>Cuando registres una congregación desde Administración Nacional, aparecerá en «Cambiar espacio» como vista local. Los accesos seguros de Pastor, Secretaría y Tesorería se habilitan al conectar la autenticación.</span>
-          </div>
-          <button
-            type="button"
-            className="primary-action official-setup-action"
-            onClick={() => onSelectUser?.({
-              username: 'administracion_local',
-              displayName: 'Administración local',
-              spaces: [{ id: 'national-local', type: 'national_admin', name: 'Administración Nacional', role: 'Preparación local' }]
-            })}
-          >
-            Abrir preparación local <ArrowRight size={17} />
-          </button>
+          {cloudEnabled() ? (
+            <CloudLogin onSelectUser={onSelectUser} />
+          ) : (
+            <>
+              <div className="security-disclaimer official-setup-notice">
+                <strong>Versión oficial · preparación local</strong>
+                <span>Empieza con una base vacía, sin personas ni perfiles de prueba. Los datos quedan en este dispositivo.</span>
+                <span>Para que varias personas trabajen juntas, se conecta la base central (ver docs/puesta-en-marcha.md). Hasta entonces, cada dispositivo guarda lo suyo.</span>
+              </div>
+              <button
+                type="button"
+                className="primary-action official-setup-action"
+                onClick={() => onSelectUser?.({
+                  username: 'administracion_local',
+                  displayName: 'Administración local',
+                  spaces: [{ id: 'national-local', type: 'national_admin', name: 'Administración Nacional', role: 'Preparación local' }]
+                })}
+              >
+                Abrir preparación local <ArrowRight size={17} />
+              </button>
+            </>
+          )}
           <div className="demo-entry-separator"><span>o explora con datos de ejemplo</span></div>
           <div className="demo-entry-card">
             <div>
@@ -6736,6 +6857,7 @@ export default function CRM({
             query={query}
             edit={(c, r) => setEditor({ collection: c, row: r })}
             onOpenMatcher={() => setMatcherOpen(true)}
+            onImport={collection === 'people' && wsType === 'church' && activeScope ? () => setImportOpen(true) : undefined}
             committeeKey={wsType === 'national_committee' ? currentWorkspace?.committeeKey : undefined}
             readOnly={wsType === 'national_admin' && (collection === 'churches' || [
               'people', 'families', 'transactions', 'events', 'serviceSchedules', 'groups', 'cellReports',
@@ -6761,7 +6883,12 @@ export default function CRM({
       ) : path === '/celulas' ? (
         <CellGroupsDashboard state={state} scope={activeScope} save={save} />
       ) : path === '/configuracion' ? (
-        <Configuration state={state} onRestore={clean => setState(clean)} allowRestore={wsType !== 'national_admin'} />
+        <Configuration
+          state={state}
+          onRestore={clean => setState(clean)}
+          allowRestore={wsType !== 'national_admin' || cloudEnabled()}
+          showUsers={cloudEnabled() && wsType === 'national_admin'}
+        />
       ) : path === '/informes' ? (
         <Reports
           state={
@@ -6799,6 +6926,16 @@ export default function CRM({
         />
       )}
       </div>
+
+      {importOpen && activeScope && (
+        <PeopleImport
+          state={state}
+          scope={activeScope}
+          churchName={currentWorkspace?.name || 'la congregación'}
+          save={save}
+          onClose={() => setImportOpen(false)}
+        />
+      )}
 
       {/* Modal Editor de Fichas Especializados y Genéricos */}
       {editor && editor.collection === 'people' ? (
@@ -6899,7 +7036,8 @@ export default function CRM({
 
 // --- Configuración y Respaldos ---
 
-function Configuration({ state, onRestore, allowRestore = true }: { state: State; onRestore: (cleanState: State) => void; allowRestore?: boolean }) {
+// Con base central, la Administración Nacional también puede subir acá el respaldo de lo cargado en un dispositivo.
+function Configuration({ state, onRestore, allowRestore = true, showUsers = false }: { state: State; onRestore: (cleanState: State) => void; allowRestore?: boolean; showUsers?: boolean }) {
   const [restoreDraft, setRestoreDraft] = useState<State | null>(null)
   const [restoreError, setRestoreError] = useState('')
   const [restoreSuccess, setRestoreSuccess] = useState('')
@@ -6958,6 +7096,8 @@ function Configuration({ state, onRestore, allowRestore = true }: { state: State
         Administra las copias de seguridad de Portal Nacional. Los respaldos incluyen todas las iglesias, actividades nacionales, asignaciones, finanzas y personas.
       </p>
 
+      {showUsers && <UsersAdmin state={state} />}
+
       <div className="restore-box">
         <h3>1. Exportar copia de seguridad</h3>
         <p>Descarga un archivo JSON con todos los datos y fotografías actuales para guardarlo en un lugar seguro.</p>
@@ -7005,7 +7145,9 @@ function Configuration({ state, onRestore, allowRestore = true }: { state: State
             </div>
 
             <p style={{ color: '#8a291c', fontWeight: 600, fontSize: '.9rem' }}>
-              Advertencia: La restauración reemplazará los registros actuales por los contenidos en este archivo.
+              {cloudEnabled()
+                ? 'Los registros del archivo se suben a la base central. Si un registro ya existe, se actualiza; no se borra nada.'
+                : 'Advertencia: La restauración reemplazará los registros actuales por los contenidos en este archivo.'}
             </p>
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

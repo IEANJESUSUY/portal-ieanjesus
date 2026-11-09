@@ -13,6 +13,7 @@ import {
   Wallet
 } from 'lucide-react'
 import { CalendarPreviewCard } from './CalendarModule'
+import { NationalDashboard } from './NationalDashboard'
 
 type Row = { id: string; [key: string]: any }
 type State = Record<string, Row[]>
@@ -80,116 +81,8 @@ export function OperationalHome({
   const localAttentionCount = tasks.length + Number(dueMonthly) + Number(!!incomplete.length)
   const mainChurches = (state.churches || []).filter(c => c.isPreachingPlace !== 'Sí')
 
-  // --- VISTA PRINCIPAL ESPECÍFICA DE ADMINISTRACIÓN NACIONAL (LOTE 1) ---
-  if (!scope) {
-    const totalIncome = (state.transactions || [])
-      .filter(t => t.direction === 'Ingreso' && !isTitheTransaction(t))
-      .reduce((s, t) => s + Number(t.amount || 0), 0)
-    const totalExpense = (state.transactions || [])
-      .filter(t => t.direction === 'Egreso' && !isTitheTransaction(t))
-      .reduce((s, t) => s + Number(t.amount || 0), 0)
-
-    return (
-      <div className="home-workspace national-admin-home">
-        <header className="workspace-title">
-          <div>
-            <span className="eyebrow">Panorama Ejecutivo Nacional · Uruguay</span>
-            <h2>Inicio</h2>
-            <p>
-              {workspaceName} · Resumen general segmentado por congregación y seguimiento de comités nacionales.
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link className="secondary-action" to="/calendario">
-              <CalendarDays size={17} /> Calendario nacional
-            </Link>
-            <Link className="primary-action" to="/informes">
-              <FileText size={17} /> Recepción de informes
-            </Link>
-          </div>
-        </header>
-
-        {/* Indicadores Nacionales Consolidados */}
-        <section className="national-kpi-strip national-overview-kpis" aria-label="Indicadores nacionales">
-          <Link to="/iglesias" className="national-kpi-card">
-            <span>Congregaciones y lugares</span>
-            <strong>{mainChurches.length}</strong>
-            <small>{(() => { const n = (state.churches || []).filter(c => c.isPreachingPlace === 'Sí').length; return `${n} ${n === 1 ? 'lugar' : 'lugares'} de predicación` })()}</small>
-          </Link>
-          <Link to="/finanzas" className="national-kpi-card">
-            <span>Balance nacional consolidado (sin diezmos)</span>
-            <strong>{cash(totalIncome - totalExpense)}</strong>
-            <small>Ingresos: {cash(totalIncome)} · Ver por congregación →</small>
-          </Link>
-          <Link to="/informes" className="national-kpi-card">
-            <span>Informes por revisar</span>
-            <strong>{pendingReports}</strong>
-            <small>Recepción nacional →</small>
-          </Link>
-        </section>
-
-        {/* Resumen segmentado por Congregación (resumen -> congregación -> detalle) */}
-        <section className="workspace-section">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">Segmentación Nacional</span>
-              <h3>Estado general por congregación</h3>
-            </div>
-            <Link to="/iglesias" className="link-inline">
-              Directorio de iglesias <ArrowRight size={15} />
-            </Link>
-          </div>
-          <div className="congregation-cards-grid">
-            {mainChurches.map(ch => {
-              const chTxs = (state.transactions || []).filter(t => t.churchId === ch.id && !isTitheTransaction(t))
-              const chInc = chTxs.filter(t => t.direction === 'Ingreso').reduce((s, t) => s + Number(t.amount || 0), 0)
-              const chExp = chTxs.filter(t => t.direction === 'Egreso').reduce((s, t) => s + Number(t.amount || 0), 0)
-              const chReport = (state.monthlyReports || []).find(r => r.churchId === ch.id && r.month === month)
-
-              return (
-                <article key={ch.id} className="congregation-summary-card">
-                  <div className="congregation-card-head">
-                    <div>
-                      <span className="eyebrow">{ch.department || ch.city}</span>
-                      <h4>{ch.name}</h4>
-                    </div>
-                    <span className={`status-pill status-${chReport?.status || 'Pendiente'}`}>
-                      Informe: {chReport?.status || 'Pendiente'}
-                    </span>
-                  </div>
-                  <p style={{ margin: '4px 0 10px', fontSize: '.82rem', color: '#5b6f82' }}>
-                    Pastor: <strong>{ch.pastor || 'Por asignar'}</strong>
-                  </p>
-                  <div className="congregation-card-metrics">
-                    <div>
-                      <span>Ingresos</span>
-                      <strong>{cash(chInc)}</strong>
-                    </div>
-                    <div>
-                      <span>Egresos</span>
-                      <strong>{cash(chExp)}</strong>
-                    </div>
-                    <div>
-                      <span>Saldo neto</span>
-                      <strong>{cash(chInc - chExp)}</strong>
-                    </div>
-                  </div>
-                  <div className="congregation-card-footer">
-                    <Link to={`/personas?iglesia=${ch.id}`} className="link-inline">
-                      Abrir congregación <ArrowRight size={15} />
-                    </Link>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
-        </section>
-
-        <CalendarPreviewCard state={state} wsType="national_admin" scope="" maxUpcoming={3} />
-      </div>
-    )
-  }
-
+  // --- VISTA PRINCIPAL DE ADMINISTRACIÓN NACIONAL: indicadores y semáforo por congregación ---
+  if (!scope) return <NationalDashboard state={state} workspaceName={workspaceName} />
   // --- VISTA OPERATIVA LOCAL DE CONGREGACIÓN / LUGAR DE PREDICACIÓN ---
   return (
     <div className="home-workspace">

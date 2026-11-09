@@ -36,6 +36,7 @@ import {
   today
 } from '../utils'
 import { NATIONAL_COMMITTEES } from '../../shared/catalog.mjs'
+import { EXPENSE_ITEMS, INCOME_ITEMS } from '../finance'
 
 type SaveRecord = (collection: string, row: Row) => Promise<any>
 type Screen = 'home' | 'attendance' | 'money' | 'person' | 'report' | 'calendar' | 'requests'
@@ -87,20 +88,8 @@ function parseAmount(value: string) {
 
 const isTithe = (row: Row) => /diezmo/i.test([row.category, row.name, row.description, row.subCategory].filter(Boolean).join(' '))
 
-const INCOME_CONCEPTS = [
-  { label: 'Diezmos', category: 'Diezmo' },
-  { label: 'Ofrenda', category: 'Ofrenda' },
-  { label: 'Donación', category: 'Donación' },
-  { label: 'Otra entrada', category: 'Otro', custom: true }
-]
-const EXPENSE_CONCEPTS = [
-  { label: 'Luz', category: 'Gasto' },
-  { label: 'Agua', category: 'Gasto' },
-  { label: 'Alquiler', category: 'Gasto' },
-  { label: 'Limpieza y materiales', category: 'Gasto' },
-  { label: 'Ayuda social', category: 'Gasto' },
-  { label: 'Otro gasto', category: 'Gasto', custom: true }
-]
+const INCOME_CONCEPTS = INCOME_ITEMS
+const EXPENSE_CONCEPTS = EXPENSE_ITEMS
 
 export function QuickMode({
   state,
@@ -883,7 +872,8 @@ function MoneyFlow({ scope, save, onExit }: { scope: string; save: SaveRecord; o
         financialStatus: 'Registrado',
         receiptPhoto: tithe ? '' : photo,
         reference: '',
-        subCategory: '',
+        // El rubro (Luz, Agua, Internet…) permite controlar los gastos fijos de cada mes.
+        subCategory: direction === 'Egreso' ? concept.label : '',
         committeeKey: tithe ? '' : committeeKey,
         groupId: ''
       })
@@ -978,6 +968,7 @@ function MoneyFlow({ scope, save, onExit }: { scope: string; save: SaveRecord; o
               onClick={() => { setConcept(c); if (!c.custom) go('confirm') }}
             >
               {c.label}
+              {c.hint && <small className="qm-chip-hint">{c.hint}</small>}
             </button>
           ))}
         </div>

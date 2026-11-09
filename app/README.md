@@ -1,47 +1,40 @@
-# Portal Nacional
+# Portal Nacional · aplicación
 
-Aplicación principal del CRM nacional de la iglesia cristiana en Uruguay.
+React + TypeScript + Vite. Todo el texto y los comentarios están en español rioplatense.
 
-## Ejecución y comandos
+## Comandos (desde esta carpeta)
 
-Para ejecutar scripts en este entorno local con Node 24:
+| Qué | Comando |
+|---|---|
+| Archivo único para abrir con doble clic (`app/index.html`) | `node scripts/build-portable.mjs` |
+| Versión web para publicar e instalar (`app/dist-web/`) | `node scripts/build-web.mjs` |
+| Compilar y correr **todas** las pruebas (necesita Google Chrome) | `node scripts/probar.mjs` |
+| Servidor de desarrollo con base SQLite local | `npx vite` |
 
-```bash
-& "C:\Users\sanwi\AppData\Local\OpenAI\Codex\runtimes\cua_node\cfb32733c877621e\bin\node.exe" scripts/build-portable.mjs
-```
+Las pruebas están en `pruebas/` (Playwright): primer uso sin datos, congregación en el celular,
+personas e importación del formulario, informe sobre la planilla oficial, panel nacional y comités,
+y la base central contra un Supabase simulado. Las capturas quedan en `../tmp/pruebas/`.
 
-### Comandos de verificación
-- **Compilar portable:** `node scripts/build-portable.mjs` (genera `app/index.html` autocontenido).
-- **Pruebas unitarias del almacén:** `node --test server/store.test.mjs`
-- **Pruebas de portabilidad y regresión:** `node scripts/check-portable.mjs`
-- **Verificación de flujos nacionales:** `node scripts/verify-recorridos.mjs`
-- **Verificación de criterios de aceptación (Sección 8):** `node scripts/verify-all-criterios.mjs`
-- **Verificación visual y screenshots:** `node scripts/visual-check.mjs`
+## Dónde se guardan los datos
 
-## Abrir directamente (Doble clic)
-Haz doble clic en `index.html` (en la raíz de `APP NACIONAL` o en `app/index.html`).
-La compilación incluye todo el JavaScript y CSS embebidos dentro de un único archivo HTML sin dependencias externas ni necesidad de servidor web `127.0.0.1`.
+`src/CRM.tsx → api()` elige solo:
 
-- La versión oficial comienza vacía y no carga perfiles ni registros ficticios.
-- En modo archivo (`file://`): los datos quedan en este navegador con IndexedDB (`portal-nacional-oficial-v1`), separado de la copia de pruebas.
-- En modo servidor local (`http://`): la API usa `data/portal-nacional-oficial.sqlite`, separado del almacenamiento anterior.
-- La autenticación institucional y la conexión a una base central todavía no están implementadas. No cargues datos sensibles o reales hasta completar y probar esos controles.
+1. **Base central (Supabase)** si la compilación tiene `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`
+   (ver `.env.example`). Entrada con correo y contraseña; permisos por congregación y comité
+   definidos en `supabase/schema.sql`. Código: `src/cloud.ts`.
+2. **Navegador (IndexedDB)** al abrir el archivo único sin base central. Código: `src/local-data.ts`.
+3. **SQLite local** con `npx vite` (desarrollo). Código: `server/`.
 
-## Características clave implementadas
-1. **Regla de congregación según espacio activo:**
-   - La congregación se asigna automáticamente al espacio activo al crear registros dentro de una iglesia local o lugar de predicación.
-   - En lugares de predicación (ej. San Carlos), los registros conservan su origen y su congregación madre (ej. Maldonado) para consolidación.
-   - Listados nacionales disponibles solo para Administración Nacional y Comités Nacionales.
-2. **Formulario ágil de ingresos y egresos:**
-   - Selector visual de dos botones grandes (`Ingreso` / `Egreso`).
-   - Importe destacado en pesos uruguayos (`$ UYU`), concepto, descripción, comprobante fotográfico opcional con compresión WebP cliente y comité/destino.
-   - Botón «Agregar más detalles» para desplegar culto o actividad relacionada, persona aportante, subcategoría y notas.
-   - Botón de guardado contextual: «Guardar ingreso» o «Guardar egreso».
-3. **Comités locales oficiales:**
-   - 9 áreas congregacionales oficiales (Escuela Dominical, Jóvenes, Damas Dorcas, Caballeros, Misiones, Comunicaciones, Música, Obra Social y Junta Local).
-   - Comités nacionales conservan los 7 oficiales confirmados con etiqueta «Damas Dorcas».
-4. **Fichas de personas especializadas:**
-   - Botón «Agregar amigo»: formulario rápido para contactos y visitas (nombre, apellido, género, nacimiento, celular, foto opcional).
-   - Botón «Agregar persona vinculada»: ficha completa ministerial y familiar con vinculación a lugares de predicación locales y familias.
-   - Conversión «Completar información y vincular» dentro de la ficha de amigo sin duplicar la persona.
-   - Búsqueda y deduplicación modal para prevención de perfiles duplicados.
+Las reglas para guardar (validación, asistencia única por culto, etc.) están en `prepareRecord`
+(`src/local-data.ts`) y `shared/catalog.mjs`, y las usan las tres formas.
+
+## Mapa del código
+
+- `src/App.tsx`, `src/components/Sidebar.tsx`, `src/navigation.ts`: estructura y menú de 5 secciones por espacio.
+- `src/components/QuickMode.tsx`: Inicio de cada congregación (pasar lista, anotar dinero y personas, pedidos).
+- `src/components/NationalDashboard.tsx`: panel nacional con indicadores y semáforo.
+- `src/components/ReportStudio.tsx`: informe mensual sobre la planilla oficial (editar, imprimir).
+- `src/components/PeopleImport.tsx`: importar el formulario de Google.
+- `src/finance.ts`: rubros de dinero y gastos fijos.
+- `src/components/CloudLogin.tsx`, `src/components/UsersAdmin.tsx`: entrada y permisos con base central.
+- `public/manifest.webmanifest`, `public/sw.js`, `src/components/InstallPrompt.tsx`: app instalable.

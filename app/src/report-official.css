@@ -157,10 +157,97 @@
   overflow-wrap: anywhere;
 }
 .ofi-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 2cqw; margin-top: -1.4cqw; }
+.ofi-photos figure { position: relative; margin: 0; }
 .ofi-photos img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
 .ofi-photos.n1 { grid-template-columns: 1fr; }
 .ofi-photos.n1 img { aspect-ratio: 16 / 10; }
-.ofi-photos.n3 img:first-child { grid-column: 1 / -1; aspect-ratio: 16 / 8; }
+.ofi-photos.n3 figure:first-child { grid-column: 1 / -1; }
+.ofi-photos.n3 figure:first-child img { aspect-ratio: 16 / 8; }
+
+/* Anexo: datos del Portal, observaciones y gráficos con el mismo estilo de cajas */
+.ofi-counts.wide strong { width: 24cqw; }
+.ofi-counts .ofi-result { background: var(--ofi-box); color: #fff; font-weight: 700; }
+/* El anexo lleva las firmas al final: todo un poco más compacto para que entre en una hoja. */
+.ofi-annex .ofi-body { gap: 1.6cqw; padding-bottom: 0; }
+.ofi-annex .ofi-counts { gap: 1cqw; margin-top: 0; }
+.ofi-annex .ofi-counts strong { height: 4.2cqw; }
+.ofi-annex .ofi-signatures { padding-top: 3cqw; padding-bottom: 3cqw; }
+.ofi-annex .ofi-signatures i { height: 5cqw; }
+.ofi-notes { min-height: 6cqw; padding: 1.6cqw 1.6cqw; }
+.ofi-note { margin: 0; color: #4b5563; font-size: 1.45cqw; }
+.ofi-chart-title { margin: 1cqw 0 0; color: #000; font-size: 2.2cqw; font-style: italic; font-weight: 400; }
+.ofi-chart-title b { font-weight: 800; }
+.ofi-charts { display: grid; gap: 1.6cqw; }
+.ofi-hbar { display: grid; grid-template-columns: 13cqw minmax(0, 1fr) 18cqw; align-items: center; gap: 2cqw; font-size: 1.85cqw; }
+.ofi-hbar i { display: block; height: 3.4cqw; border: .3cqw solid var(--ofi-box); }
+.ofi-hbar i b { display: block; height: 100%; background: var(--ofi-box); }
+.ofi-hbar i b.out { background: #c79a2b; }
+.ofi-hbar strong { text-align: right; font-weight: 700; }
+.ofi-columns {
+  display: flex; align-items: flex-end; gap: 1.4cqw; height: 13cqw; padding: 0 1cqw;
+  border-bottom: .35cqw solid var(--ofi-box);
+}
+.ofi-columns > div { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; justify-content: flex-end; gap: .6cqw; height: 100%; min-width: 0; }
+.ofi-columns i { display: block; width: 100%; max-width: 7cqw; background: var(--ofi-box); }
+.ofi-columns strong { font-size: 1.6cqw; }
+.ofi-columns span { order: 3; margin-bottom: -3.4cqw; font-size: 1.35cqw; color: #374151; }
+.ofi-annex .ofi-charts { gap: 1.2cqw; padding-bottom: 3.6cqw; }
+.ofi-annex .ofi-chart-title { margin-top: .6cqw; }
+.ofi-annex .ofi-hbar i { height: 2.8cqw; }
+
+/* Edición directa sobre la hoja: los cuadros que se pueden cambiar se ven amarillos claritos */
+/* !important: los campos del editor tienen estilos generales de formulario que acá no van. */
+.document-studio .ofi-page .ofi-input,
+.ofi-page .ofi-input {
+  width: 100% !important; min-width: 0 !important; height: 100% !important; min-height: 0 !important;
+  margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important;
+  background: transparent !important; box-shadow: none !important; color: inherit !important;
+  font: inherit !important; letter-spacing: inherit !important; text-align: inherit !important; outline: none !important;
+}
+.document-studio .ofi-page textarea.ofi-input { padding: 2cqw 1.6cqw !important; border: .3cqw solid var(--ofi-box) !important; line-height: 1.45 !important; text-align: left !important; }
+.document-studio .ofi-page textarea.ofi-activity-text { min-height: 18cqw !important; }
+.document-studio .ofi-page textarea.ofi-notes { min-height: 8cqw !important; }
+.ofi-editing :is(.ofi-value, .ofi-rows dd, .ofi-counts strong, .ofi-averages td, .ofi-signatures strong):has(.ofi-input),
+.document-studio .ofi-editing textarea.ofi-input {
+  background: #fff8db !important;
+}
+.ofi-editing .ofi-rows dd:has(.ofi-input) b { flex: 1; align-self: stretch; display: flex; }
+.ofi-editing :is(.ofi-value, .ofi-rows dd, .ofi-counts strong, .ofi-averages td, .ofi-signatures strong, .ofi-activity-head h3):has(.ofi-input:focus),
+.document-studio .ofi-editing textarea.ofi-input:focus { box-shadow: 0 0 0 .5cqw #f2ce67 !important; }
+.document-studio .ofi-page .ofi-input.ofi-number,
+.document-studio .ofi-page .ofi-signatures .ofi-input { text-align: center !important; }
+.ofi-input::placeholder { color: #8a7d55; opacity: 1; }
+.ofi-number { text-align: center; -moz-appearance: textfield; }
+.ofi-number::-webkit-inner-spin-button, .ofi-number::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
+.ofi-averages .ofi-input { height: 100%; }
+.ofi-upper { text-transform: uppercase; color: #fff; font-weight: 800; }
+.ofi-activity-head h3 .ofi-upper::placeholder { color: #c9d4ea; }
+textarea.ofi-activity-text { display: block; width: 100%; box-sizing: border-box; resize: vertical; field-sizing: content; text-align: left; }
+.ofi-signatures .ofi-input { text-align: center; font-weight: 700; }
+.ofi-photo-remove {
+  position: absolute; top: 1cqw; right: 1cqw; display: grid; place-items: center; width: 34px; height: 34px;
+  border: 0; border-radius: 50%; background: rgba(11, 31, 79, .85); color: #fff; cursor: pointer;
+}
+.ofi-edit-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.ofi-photo-add {
+  position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px;
+  border: 2px dashed #9fb3d6; border-radius: 12px; background: #f5f8fd; color: var(--ofi-box);
+  font-family: system-ui, sans-serif; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.ofi-photo-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.ofi-edit-tools .secondary-action { font-family: system-ui, sans-serif; font-size: 15px; }
+.studio-edit-hint {
+  max-width: 1100px; margin: 0 auto 14px; padding: 10px 14px; border: 1px solid #f2ce67; border-radius: 12px;
+  background: #fffbea; color: #5b4a12; font-size: 14px; line-height: 1.45;
+}
+.studio-helper { max-width: 1100px; margin: 18px auto 0; padding: 18px; border: 1px solid #d6dfea; border-radius: 16px; background: #fff; }
+
+/* En el celular la hoja tiene un ancho mínimo para que la letra se pueda leer y escribir; se desliza de costado. */
+@media (max-width: 700px) {
+  .ofi-sheet-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ofi-sheet-scroll .ofi-page { min-width: 560px; }
+  .studio-edit-hint { margin-inline: 0; }
+}
 
 /* Firmas y pie */
 .ofi-closing { margin-top: auto; }
@@ -194,6 +281,23 @@
 }
 .ofi-foot > span { position: relative; }
 .ofi-foot > span:last-child { text-align: right; }
+
+/* Resumen nacional: tabla de congregaciones con el mismo estilo de cajas */
+.ofi-summary { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 1.5cqw; }
+.ofi-summary th {
+  padding: 1.1cqw .9cqw; background: var(--ofi-box); color: #fff; font-weight: 700; text-align: left;
+  border: .25cqw solid var(--ofi-box);
+}
+.ofi-summary td { padding: 1cqw .9cqw; border: .25cqw solid var(--ofi-box); vertical-align: middle; overflow-wrap: anywhere; }
+.ofi-summary td strong { display: block; font-weight: 700; }
+.ofi-summary td small { display: block; margin-top: .3cqw; color: #4b5563; font-size: 1.3cqw; }
+.ofi-summary th { font-size: 1.35cqw; }
+.ofi-summary .num { text-align: right; white-space: nowrap; }
+.ofi-summary .ofi-ok { color: #0f6b3a; font-weight: 700; }
+.ofi-summary .ofi-due { color: #a3410d; font-weight: 700; }
+.ofi-summary tfoot td { background: #eef2f9; font-weight: 800; }
+.ofi-summary-note { margin: 0; color: #4b5563; font-size: 1.4cqw; }
+.ofi-signatures.single { grid-template-columns: 1fr; padding: 5cqw 32cqw 4cqw; }
 
 /* En el editor, la hoja va sobre el fondo gris como las demás páginas */
 .studio-canvas .ofi-page { box-shadow: 0 6px 25px #17344b1f; }

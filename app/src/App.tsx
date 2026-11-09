@@ -4,6 +4,8 @@ import { Header } from './components/Header'
 import { HelpChat } from './components/HelpChat'
 import { Sidebar } from './components/Sidebar'
 import CRM from './CRM'
+import { cloudSignOut } from './cloud'
+import { InstallPrompt } from './components/InstallPrompt'
 
 export type Workspace = {
   id: string
@@ -118,6 +120,8 @@ export default function App() {
   }
 
   const handleLogout = () => {
+    // Con base central, salir también cierra la sesión del usuario en este dispositivo.
+    if (currentUser && (currentUser as any).cloud) void cloudSignOut()
     handleSelectUser(null)
   }
 
@@ -174,6 +178,7 @@ export default function App() {
           workspaceName={currentWorkspace?.name || 'Administración Nacional'}
           local={['church', 'preaching_place'].includes(currentWorkspace?.type || '')}
         />
+        <InstallPrompt />
       </section>
     </div>
   )
