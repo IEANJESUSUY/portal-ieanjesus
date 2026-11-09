@@ -20,6 +20,19 @@ await run('Panel de la Administración Nacional', async ({ browser, check, watch
   await page.getByRole('button', { name: 'Imprimir resumen' }).click()
   await page.waitForFunction(() => window.__printed > 0)
   check(await page.locator('#report-print-root .ofi-summary tbody tr').count() >= 2, 'Imprimir resumen arma la hoja oficial con cada iglesia')
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')))
+
+  // Informes del año en un solo PDF (para Drive)
+  const button = page.getByRole('button', { name: /Descargar en PDF/ })
+  const count = Number((await button.innerText()).match(/\((\d+)\)/)?.[1] || 0)
+  await button.click()
+  if (count) {
+    await page.waitForFunction(() => window.__printed > 1)
+    const sheets = await page.locator('#report-print-root .ofi-page').count()
+    check(sheets >= count * 2, `descargar el año arma ${count} informes en ${sheets} hojas oficiales`)
+  } else {
+    check(await page.getByText(/No hay informes enviados de/).count() === 1, 'si no hay informes del año, lo avisa')
+  }
 })
 
 await run('Comité nacional', async ({ browser, check, watch }) => {

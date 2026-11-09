@@ -34,7 +34,10 @@ tiene las claves de Supabase. Sin claves, sigue guardando en el dispositivo.
 ## Paso 2 · Subir el proyecto a GitHub
 
 1. Creá una cuenta en <https://github.com> si no tenés.
-2. **New repository** → nombre `portal-ieanjesus` → **Private** → *Create repository* (sin README).
+2. **New repository** → nombre `portal-ieanjesus` → **Public** → *Create repository* (sin README).
+   Público es gratis con GitHub Pages. Se ve el código, **no los datos**: esos quedan en Supabase,
+   protegidos por usuario. En el código no hay contraseñas ni datos de personas.
+   (Si preferís el código oculto: repositorio privado + GitHub Pro, unos USD 4 por mes.)
 3. En la computadora, desde la carpeta del proyecto (`APP NACIONAL OFICIAL`):
 
    ```bash
@@ -44,27 +47,16 @@ tiene las claves de Supabase. Sin claves, sigue guardando en el dispositivo.
 
    La primera vez Git abre una ventana para iniciar sesión en GitHub.
 
-## Paso 3 · Publicar en internet
-
-Elegí **una** de las dos opciones.
-
-### Opción A · Netlify (recomendada: funciona con el repositorio privado, gratis)
-
-1. Entrá a <https://app.netlify.com> con tu cuenta de GitHub.
-2. **Add new site → Import an existing project → GitHub** → elegí `portal-ieanjesus`.
-   Netlify lee solo la configuración de `netlify.toml`.
-3. Antes de publicar, en **Environment variables** agregá:
-   - `VITE_SUPABASE_URL` = la Project URL del paso 1
-   - `VITE_SUPABASE_ANON_KEY` = la clave anon public
-4. **Deploy**. En 2 o 3 minutos te da una dirección como `https://portal-ieanjesus.netlify.app`
-   (se puede cambiar el nombre en *Site configuration → Change site name*).
-
-### Opción B · GitHub Pages (requiere repositorio público o GitHub Pro)
+## Paso 3 · Publicar en internet (GitHub Pages, gratis)
 
 1. En el repositorio: **Settings → Pages → Source: GitHub Actions**.
 2. **Settings → Secrets and variables → Actions → New repository secret**: cargá
-   `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
-3. Cada vez que hagas `git push`, se publica solo (pestaña **Actions** para ver el avance).
+   - `VITE_SUPABASE_URL` = la Project URL del paso 1
+   - `VITE_SUPABASE_ANON_KEY` = la clave anon public
+3. Pestaña **Actions → Publicar el Portal → Run workflow** (la primera vez). En 2 o 3 minutos queda en
+   `https://TU-USUARIO.github.io/portal-ieanjesus/`.
+4. Desde ahí, cada `git push` publica solo. GitHub no cobra por publicación: podés hacer todos los
+   cambios que quieras. Lo que guardás en tu computadora (commit) no se publica hasta que hagas push.
 
 Después de publicar, en Supabase: **Authentication → URL Configuration → Site URL** = la dirección del Portal.
 
@@ -124,18 +116,46 @@ git commit -m "Descripción del cambio"
 git push
 ```
 
-y Netlify / GitHub Pages publica la versión nueva sola. En el celular se actualiza al volver a abrir.
+y GitHub Pages publica la versión nueva sola. En el celular se actualiza al volver a abrir.
 
 ## Seguridad y cuidados
 
 - La clave *anon public* es pública por diseño: lo que protege los datos son las reglas de
   `schema.sql` (cada usuario ve solo lo que le corresponde). No las borres.
 - Los diezmos se anotan como total, sin nombres, y sus montos están ocultos por defecto.
-- Las fotos se guardan comprimidas dentro de la base. El plan gratis de Supabase trae 500 MB:
-  alcanza para empezar; si crece mucho, se pasan a Supabase Storage.
-- Supabase hace copias de seguridad diarias en planes pagos. En el plan gratis, exportá un respaldo
-  JSON desde Configuración **una vez por mes** y guardalo en Drive.
+- **Fotos:** se comprimen en el celular antes de subirse (WebP; actividades hasta 1280 px ≈ 100–180 KB,
+  comprobantes ≈ 80–150 KB, fotos de personas ≈ 20–30 KB) y se guardan como archivos en el
+  almacenamiento de Supabase (bucket privado `fotos`). En la base queda solo la referencia, así entrar
+  al Portal es rápido y cada foto se baja recién cuando alguien la mira.
 - Si un proyecto gratis de Supabase no se usa en 7 días se pausa: se reactiva desde su panel.
+
+## Planes y espacio
+
+| | Gratis | Pro (USD 25/mes) |
+|---|---|---|
+| Datos (textos y números) | 500 MB | 8 GB |
+| Fotos | 1 GB | 100 GB |
+| Copias de seguridad diarias | No | Sí (7 días) |
+
+Uso estimado por iglesia: unos 4 MB de datos y 36 MB de fotos por año.
+
+- **Prueba en Maldonado:** el plan gratis alcanza de sobra.
+- **Varias iglesias o datos reales para quedarse:** pasar a Pro y dejar activado el **tope de gasto**
+  (Billing → Spend cap), así nunca se cobra más de lo del plan. Con 30 iglesias alcanza para décadas.
+- **Si algún día se acerca al límite** (Supabase avisa por correo): borrar del almacenamiento las fotos
+  de años ya guardados en Drive, o sumar espacio (cuesta centavos por GB).
+
+## Copia de los informes en Google Drive (una vez por año, o cuando quieras)
+
+1. **Informes → Informes del año**: elegí el año → **Descargar en PDF**.
+2. En la ventana que se abre, destino **Guardar como PDF** → Guardar.
+3. Subí ese PDF a una carpeta de Drive, por ejemplo *Portal IEANJESÚS / Informes / 2026*.
+
+Sale un solo PDF con todos los informes enviados de ese año (planilla oficial, actividades con sus fotos
+y anexo). La Administración Nacional descarga los de todas las iglesias; cada pastor, los de la suya.
+Además conviene exportar el respaldo completo (Configuración → Exportar todos los registros) una vez por
+mes y guardarlo en la misma carpeta. Ese respaldo guarda todos los datos; las fotos quedan en el
+almacenamiento de Supabase y, las de los informes, también dentro del PDF del año.
 
 ## Plan sugerido para la prueba en Maldonado (un mes)
 

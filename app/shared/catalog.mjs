@@ -399,6 +399,15 @@ export function personAgeCategory(person, customRanges = DEFAULT_AGE_RANGES) {
   return person?.ageGroup || 'Adulto'
 }
 
+// Una foto es la imagen misma (guardada en el dispositivo) o, con base central,
+// la referencia al archivo en el almacenamiento: "storage:<congregación>/<comité>/<archivo>".
+export function isPhotoValue(value) {
+  return typeof value === 'string' && (
+    /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(value) ||
+    /^storage:[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.(webp|jpg|png)$/.test(value)
+  )
+}
+
 export function validateRecord(collection, input, lookup) {
   const schema = catalog[collection]
   if (!schema || !input || typeof input !== 'object') throw new Error('Registro no válido.')
@@ -412,7 +421,7 @@ export function validateRecord(collection, input, lookup) {
     if (value && ['money', 'latitude', 'longitude'].includes(f.type) && (!Number.isFinite(Number(value)) || (f.type === 'money' && (Number(value) <= 0 || Number(value) > 1e10 || !/^\d+(\.\d{1,2})?$/.test(value))) || (f.type === 'latitude' && Math.abs(Number(value)) > 90) || (f.type === 'longitude' && Math.abs(Number(value)) > 180))) throw new Error(`${f.label}: número no válido.`)
     if (value && f.type === 'date' && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value)) throw new Error(`${f.label}: fecha no válida.`)
     if (value && f.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new Error('Correo no válido.')
-    if (value && f.type === 'photo' && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(value)) throw new Error('Fotografía no válida.')
+    if (value && f.type === 'photo' && !isPhotoValue(value)) throw new Error('Fotografía no válida.')
     if (value && catalog[f.type]) {
       const target = lookup(f.type, value)
       if (!target) throw new Error(`${f.label}: registro inexistente.`)
@@ -494,7 +503,7 @@ export function validateRecord(collection, input, lookup) {
     record.pages = Array.isArray(input.pages) ? input.pages.map(page => ({
       title: String(page?.title || 'Actividad').slice(0, 160),
       body: String(page?.body || '').slice(0, 6000),
-      photos: Array.isArray(page?.photos) ? page.photos.slice(0, 4).filter(p => typeof p === 'string' && p.startsWith('data:image/')) : []
+      photos: Array.isArray(page?.photos) ? page.photos.slice(0, 4).filter(isPhotoValue) : []
     })).slice(0, 20) : []
     record.metrics = input.metrics && typeof input.metrics === 'object' ? Object.fromEntries(
       ['encounters', 'attendance', 'income', 'expenses', 'baptismsWater', 'baptismsSpirit', 'preachingPlaces', 'refam', 'homeServices', 'loveBaskets', 'intercession', 'men', 'women', 'youth', 'children', 'visitors']
@@ -524,7 +533,7 @@ export function validateRecord(collection, input, lookup) {
 
     // Manejo de fotos (hasta 2)
     if (Array.isArray(input.photos)) {
-      record.photos = input.photos.slice(0, 2).filter(p => typeof p === 'string' && p.startsWith('data:image/'))
+      record.photos = input.photos.slice(0, 2).filter(isPhotoValue)
     } else {
       record.photos = []
     }

@@ -13,6 +13,6 @@ Pensado primero para el celular y para pastores con poca experiencia en tecnolog
 
 - `app/`: la aplicación (React + TypeScript + Vite). Ver [app/README.md](app/README.md).
 - `app/supabase/schema.sql`: base central con sus reglas de acceso.
-- `.github/workflows/publicar.yml` y `netlify.toml`: publicación automática.
+- `.github/workflows/publicar.yml`: publicación automática en GitHub Pages.
 - `docs/`: guías, decisiones y análisis.
 - `prototipo/`: primer prototipo, solo como referencia.

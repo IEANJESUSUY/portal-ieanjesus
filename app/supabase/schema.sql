@@ -126,7 +126,39 @@ drop trigger if exists records_audit on public.records;
 create trigger records_audit after insert or update or delete on public.records
   for each row execute function public.log_record_change();
 
--- 5. Usuarios y permisos desde el Portal (Configuración → Usuarios) -----------------------------
+-- 5. Fotos (almacenamiento de archivos) -----------------------------------------------------------
+-- Las fotos no van adentro de la base: se guardan como archivos en el bucket "fotos", en carpetas
+-- <congregación>/<comité>/<archivo>.webp, y en la base queda solo la referencia. Así la base es
+-- liviana y cada foto se descarga recién cuando alguien la mira. El bucket es privado: se ve con
+-- enlaces temporales y solo quien tiene permiso sobre esa congregación o ese comité.
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('fotos', 'fotos', false, 2097152, array['image/webp', 'image/jpeg', 'image/png'])
+on conflict (id) do update set public = false, file_size_limit = 2097152,
+  allowed_mime_types = array['image/webp', 'image/jpeg', 'image/png'];
+
+drop policy if exists fotos_read on storage.objects;
+create policy fotos_read on storage.objects for select to authenticated using (
+  bucket_id = 'fotos' and (
+    is_national_admin()
+    or (storage.foldername(name))[1] = any (my_church_ids())
+    or (storage.foldername(name))[2] = any (my_committee_keys())
+  )
+);
+
+drop policy if exists fotos_insert on storage.objects;
+create policy fotos_insert on storage.objects for insert to authenticated with check (
+  bucket_id = 'fotos' and (
+    is_national_admin()
+    or (storage.foldername(name))[1] = any (my_church_ids())
+    or (storage.foldername(name))[2] = any (my_committee_keys())
+  )
+);
+
+drop policy if exists fotos_delete on storage.objects;
+create policy fotos_delete on storage.objects for delete to authenticated using (bucket_id = 'fotos' and is_national_admin());
+
+-- 6. Usuarios y permisos desde el Portal (Configuración → Usuarios) -----------------------------
 -- Cada persona crea su usuario con "Crear mi usuario"; la Administración Nacional le asigna su espacio.
 
 create or replace function public.assign_membership(
@@ -154,7 +186,7 @@ $$;
 revoke execute on function public.assign_membership(text, text, text, text, text, text) from anon;
 revoke execute on function public.list_memberships() from anon;
 
--- 6. Primer administrador ------------------------------------------------------------------------
+-- 7. Primer administrador ------------------------------------------------------------------------
 -- Después de crear tu usuario en Authentication → Users, cambiá el correo y ejecutá:
 --
 -- insert into public.memberships (user_id, space_type, role, display_name)

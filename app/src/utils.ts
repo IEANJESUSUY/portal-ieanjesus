@@ -72,6 +72,18 @@ export function findPossibleDuplicates(people: Row[], draft: Row) {
   })
 }
 
+// Tamaño máximo y calidad según para qué es la foto (WebP: se ve igual y pesa mucho menos).
+//   actividad: se imprime en el informe A4 · ~100–180 KB
+//   comprobante: tiene que leerse el texto · ~80–150 KB
+//   persona: se ve chiquita en la ficha · ~20–30 KB
+export const PHOTO = {
+  activity: [1280, 1280, 0.72],
+  receipt: [1000, 1400, 0.7],
+  person: [400, 400, 0.75]
+} as const satisfies Record<string, readonly [number, number, number]>
+
+export const compressFor = (kind: keyof typeof PHOTO, file: File) => compressPhoto(file, ...PHOTO[kind])
+
 // Compresor de imágenes en cliente: reduce dimensiones y convierte a WebP
 export async function compressPhoto(file: File, maxWidth = 900, maxHeight = 900, quality = 0.82): Promise<string> {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {

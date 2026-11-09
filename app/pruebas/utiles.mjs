@@ -26,20 +26,26 @@ export async function openDemo(page, space) {
 }
 
 // Foto JPEG de prueba generada en el momento (no hace falta guardar imágenes en el proyecto).
-export async function testPhoto(browser, color = '#3d6bb3') {
+// Con width/height grandes simula la foto de un celular (4000 × 3000, varios MB, con textura).
+export async function testPhoto(browser, { color = '#3d6bb3', width = 800, height = 600 } = {}) {
   const page = await browser.newPage()
-  const data = await page.evaluate(fill => {
-    const canvas = Object.assign(document.createElement('canvas'), { width: 800, height: 600 })
+  const data = await page.evaluate(({ fill, w, h }) => {
+    const canvas = Object.assign(document.createElement('canvas'), { width: w, height: h })
     const ctx = canvas.getContext('2d')
     ctx.fillStyle = fill
-    ctx.fillRect(0, 0, 800, 600)
+    ctx.fillRect(0, 0, w, h)
+    // Textura parecida a una foto real (si fuera de un solo color se comprimiría demasiado fácil).
+    for (let i = 0; i < (w * h) / 400; i++) {
+      ctx.fillStyle = `hsl(${(i * 37) % 360} 45% ${30 + (i % 50)}%)`
+      ctx.fillRect((i * 7919) % w, (i * 104729) % h, 6 + (i % 18), 6 + (i % 14))
+    }
     ctx.fillStyle = '#fff'
-    ctx.font = 'bold 64px sans-serif'
-    ctx.fillText('Foto de prueba', 160, 320)
-    return canvas.toDataURL('image/jpeg', 0.8)
-  }, color)
+    ctx.font = `bold ${Math.round(w / 12)}px sans-serif`
+    ctx.fillText('Foto de prueba', w / 5, h / 2)
+    return canvas.toDataURL('image/jpeg', 0.92)
+  }, { fill: color, w: width, h: height })
   await page.close()
-  return { name: `foto-${color.slice(1)}.jpg`, mimeType: 'image/jpeg', buffer: Buffer.from(data.split(',')[1], 'base64') }
+  return { name: `foto-${width}.jpg`, mimeType: 'image/jpeg', buffer: Buffer.from(data.split(',')[1], 'base64') }
 }
 
 // Corre una prueba: imprime cada paso y falla si algo no se cumple o hay errores en la página.

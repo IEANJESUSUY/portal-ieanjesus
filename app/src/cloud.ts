@@ -145,6 +145,85 @@ async function allRows(filter = '') {
   }
 }
 
+// --- Fotos: van al almacenamiento de archivos (bucket "fotos"), no adentro de la base ---------
+// En la base queda "storage:<congregación>/<comité>/<archivo>.webp". Al cargar, cada referencia se
+// cambia por un enlace temporal firmado (7 días) que solo funciona para quien tiene permiso.
+const BUCKET = 'fotos'
+const MARK = 'storage:'
+const SIGN_SECONDS = 7 * 24 * 3600
+const uploadedPaths = new Map<string, string>() // foto (data:image…) → ruta ya subida
+const displayUrls = new Map<string, string>() // ruta → enlace o imagen para mostrar
+const signedPattern = new RegExp(`/storage/v1/object/sign/${BUCKET}/([^?]+)\\?`)
+
+// Recorre un registro (y sus listas de fotos) cambiando cada texto con `change`.
+async function mapStrings(value: any, change: (text: string) => Promise<string> | string): Promise<any> {
+  if (typeof value === 'string') return change(value)
+  if (Array.isArray(value)) return Promise.all(value.map(item => mapStrings(item, change)))
+  if (value && typeof value === 'object') {
+    const entries = await Promise.all(Object.entries(value).map(async ([key, item]) => [key, await mapStrings(item, change)]))
+    return Object.fromEntries(entries)
+  }
+  return value
+}
+
+// Un enlace firmado que vino de la base vuelve a ser su referencia antes de validar y guardar.
+const toReference = (text: string) => {
+  const match = text.startsWith(URL_BASE) ? text.match(signedPattern) : null
+  return match ? `${MARK}${decodeURIComponent(match[1])}` : text
+}
+
+async function uploadPhoto(dataUrl: string, folder: string) {
+  const known = uploadedPaths.get(dataUrl)
+  if (known) return known
+  const blob = await (await fetch(dataUrl)).blob()
+  const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/jpeg' ? 'jpg' : 'webp'
+  const path = `${folder}/${crypto.randomUUID()}.${ext}`
+  let response: Response
+  try {
+    response = await fetch(`${URL_BASE}/storage/v1/object/${BUCKET}/${path}`, {
+      method: 'POST',
+      headers: { apikey: ANON_KEY, Authorization: `Bearer ${await token()}`, 'Content-Type': blob.type, 'cache-control': 'max-age=31536000', 'x-upsert': 'false' },
+      body: blob
+    })
+  } catch {
+    throw new Error('Sin conexión a internet: no se pudo subir la foto. Probá de nuevo.')
+  }
+  if (!response.ok) throw new Error('No se pudo subir la foto. Probá de nuevo con buena señal.')
+  uploadedPaths.set(dataUrl, path)
+  displayUrls.set(path, dataUrl)
+  return path
+}
+
+const folderFor = (row: { church_id: string | null; committee_key: string | null }) =>
+  `${row.church_id || 'nacional'}/${row.committee_key || '_'}`.replace(/[^A-Za-z0-9_\-/]/g, '_')
+
+// Sube las fotos nuevas de un registro y deja solo sus referencias.
+const storePhotos = (body: any, folder: string) =>
+  mapStrings(body, async text => (text.startsWith('data:image/') ? MARK + (await uploadPhoto(text, folder)) : text))
+
+// Versión para mostrar: cada referencia se cambia por su enlace (o por la foto recién subida).
+const showPhotos = (body: any) =>
+  mapStrings(body, text => (text.startsWith(MARK) ? displayUrls.get(text.slice(MARK.length)) || '' : text))
+
+async function signPhotos(rows: Array<{ body: any }>) {
+  const paths = new Set<string>()
+  await Promise.all(rows.map(row => mapStrings(row.body, text => {
+    if (text.startsWith(MARK) && !displayUrls.has(text.slice(MARK.length))) paths.add(text.slice(MARK.length))
+    return text
+  })))
+  const list = [...paths]
+  for (let i = 0; i < list.length; i += 500) {
+    const signed = await fetch(`${URL_BASE}/storage/v1/object/sign/${BUCKET}`, {
+      method: 'POST',
+      headers: { apikey: ANON_KEY, Authorization: `Bearer ${await token()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expiresIn: SIGN_SECONDS, paths: list.slice(i, i + 500) })
+    }).then(r => (r.ok ? r.json() : [])).catch(() => [])
+    for (const item of signed || []) {
+      if (item?.signedURL && item.path) displayUrls.set(item.path, `${URL_BASE}/storage/v1${item.signedURL}`)
+    }
+  }
+}
+
 // Columnas que usan las reglas de acceso: a qué congregación y a qué comité pertenece cada registro.
 function columnsFor(collection: string, record: any, state: Data) {
   const activity = (state.nationalActivities || []).find(a => a.id === record.activityId)
@@ -173,8 +252,10 @@ async function upsert(rows: any[]) {
 export async function cloudApi(path: string, body?: any): Promise<any> {
   if (path === 'state') {
     const state = empty()
-    for (const row of await allRows()) {
-      if (state[row.collection]) state[row.collection].push({ ...row.body, id: row.id })
+    const rows = await allRows()
+    await signPhotos(rows)
+    for (const row of rows) {
+      if (state[row.collection]) state[row.collection].push({ ...(await showPhotos(row.body)), id: row.id })
     }
     cache = state
     return state
@@ -182,17 +263,26 @@ export async function cloudApi(path: string, body?: any): Promise<any> {
   const state = cache || (await cloudApi('state'))
   if (path === 'restore') {
     // Sube un respaldo (por ejemplo, lo cargado en este dispositivo) sin borrar lo que ya está en la base.
-    const rows = Object.entries(body || {}).flatMap(([collection, list]) =>
-      Array.isArray(list) && state[collection] ? list.map(record => columnsFor(collection, record, body)) : []
-    )
+    // Las fotos que traiga adentro se pasan al almacenamiento.
+    const rows = []
+    for (const [collection, list] of Object.entries(body || {})) {
+      if (!Array.isArray(list) || !state[collection]) continue
+      for (const record of list) {
+        const row = columnsFor(collection, await mapStrings(record, toReference), body)
+        rows.push({ ...row, body: await storePhotos(row.body, folderFor(row)) })
+      }
+    }
     await upsert(rows)
     return cloudApi('state')
   }
   const collection = path.split('/').pop()!
-  const record = prepareRecord(state, collection, body)
-  await upsert([columnsFor(collection, record, state)])
-  state[collection] = [...state[collection].filter((r: { id: string }) => r.id !== record.id), record]
-  return record
+  const record = prepareRecord(state, collection, await mapStrings(body, toReference))
+  const row = columnsFor(collection, record, state)
+  const stored = { ...row, body: await storePhotos(row.body, folderFor(row)) }
+  await upsert([stored])
+  const shown = { ...(await showPhotos(stored.body)), id: record.id }
+  state[collection] = [...state[collection].filter((r: { id: string }) => r.id !== record.id), shown]
+  return shown
 }
 
 // --- Usuarios y permisos (solo Administración Nacional; lo controla la base con is_national_admin) ---

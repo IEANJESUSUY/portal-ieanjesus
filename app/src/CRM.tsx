@@ -56,7 +56,7 @@ import { QuickMode, requestQuickFlow } from './components/QuickMode'
 import { LocalRequests } from './components/LocalRequests'
 import { SectionTabs } from './components/SectionTabs'
 
-import { type Row, type State, money, today, label, normalizeText, formatDate, plural, committeeLabel, findPossibleDuplicates, lastDateForWeekday, WEEKDAYS, compressPhoto, parseCsv } from './utils'
+import { type Row, type State, money, today, label, normalizeText, formatDate, plural, committeeLabel, findPossibleDuplicates, lastDateForWeekday, WEEKDAYS, compressPhoto, compressFor, parseCsv } from './utils'
 import { PeopleImport } from './components/PeopleImport'
 type Field = { key: string; label: string; type: string; required: boolean; options: string[] }
 const catalog = definitions as Record<string, { title: string; fields: Field[] }>
@@ -639,7 +639,7 @@ function PersonModal({
   async function handlePhoto(file?: File) {
     if (!file) return
     try {
-      const compressed = await compressPhoto(file)
+      const compressed = await compressFor('person', file)
       setDraft(d => ({ ...d, photo: compressed }))
     } catch (err) {
       setError((err as Error).message)
@@ -1024,7 +1024,7 @@ function FinanceMovementModal({
   async function handleReceipt(file?: File) {
     if (!file) return
     try {
-      const compressed = await compressPhoto(file)
+      const compressed = await compressFor('receipt', file)
       setDraft(d => ({ ...d, receiptPhoto: compressed }))
     } catch (err) {
       setError((err as Error).message)
@@ -2809,7 +2809,7 @@ function Attendance({
                     if (file) {
                       setQuickGuestBusy(true)
                       try {
-                        setQuickGuestPhoto(await compressPhoto(file))
+                        setQuickGuestPhoto(await compressFor('person', file))
                       } catch (err) {
                         setMessage((err as Error).message)
                       } finally {
@@ -4551,7 +4551,7 @@ function CongregationReturnForm({
     }
     setError('')
     try {
-      const compressed = await compressPhoto(file)
+      const compressed = await compressFor('activity', file)
       setPhotos([...photos, compressed])
     } catch (e) {
       setError((e as Error).message)

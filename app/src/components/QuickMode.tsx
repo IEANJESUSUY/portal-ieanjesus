@@ -27,7 +27,7 @@ import {
   type Row,
   type State,
   WEEKDAYS,
-  compressPhoto,
+  compressFor,
   findPossibleDuplicates,
   label,
   lastDateForWeekday,
@@ -848,7 +848,7 @@ function MoneyFlow({ scope, save, onExit }: { scope: string; save: SaveRecord; o
   async function handlePhoto(file?: File) {
     if (!file) return
     try {
-      setPhoto(await compressPhoto(file))
+      setPhoto(await compressFor('receipt', file))
     } catch (e) {
       setError((e as Error).message)
     }
@@ -1335,7 +1335,7 @@ function RequestAnswer({
   async function addPhoto(file?: File) {
     if (!file) return
     try {
-      const photo = await compressPhoto(file)
+      const photo = await compressFor('activity', file)
       setPhotos(list => [...list, photo].slice(0, 2))
     } catch (e) {
       setError((e as Error).message)

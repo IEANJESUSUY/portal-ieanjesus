@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Download,
   FileText,
   ImagePlus,
   MessageSquare,
@@ -17,6 +18,7 @@ import {
   X
 } from 'lucide-react'
 import { personAgeCategory } from '../../shared/catalog.mjs'
+import { PHOTO } from '../utils'
 import logoSecretaria from '../assets/logo-secretaria-nacional.png'
 import { whatsappLink } from '../whatsapp'
 
@@ -203,6 +205,49 @@ export function reportPeriod(kind: Kind, month: string) {
 }
 
 const inScope = (row: Row, scope: string) => row.churchId === scope || row.preachingPlaceId === scope
+
+// Años con informes (y el actual), del más reciente al más viejo.
+function reportYears(state: State) {
+  const years = new Set([today().slice(0, 4), ...(state.monthlyReports || []).map(r => String(r.month || '').slice(0, 4)).filter(y => /^\d{4}$/.test(y))])
+  return [...years].sort().reverse()
+}
+
+// Informes enviados de un año (sin borradores), ordenados por congregación y por mes.
+function archivedReports(state: State, year: string, scope: string) {
+  const churchName = (r: Row) => state.churches.find(c => c.id === r.churchId)?.name || ''
+  return (state.monthlyReports || [])
+    .filter(r => String(r.month || '').startsWith(year) && r.status !== 'Borrador' && (!scope || inScope(r, scope)))
+    .sort((a, b) => churchName(a).localeCompare(churchName(b), 'es') || String(a.month).localeCompare(String(b.month)) || String(a.reportType || '').localeCompare(String(b.reportType || '')))
+}
+
+// Arma las hojas de un informe guardado, igual que las muestra el editor.
+function documentFromRecord(state: State, record: Row): DocumentData {
+  const kind: Kind = record.reportType === 'quarterly' ? 'quarterly' : 'monthly'
+  const churchId = record.preachingPlaceId || record.churchId
+  const church = state.churches.find(c => c.id === churchId)
+  const month = record.from?.slice(0, 7) ||
+    (String(record.month).includes('-C') ? `${record.month.slice(0, 4)}-${String((Number(record.month.slice(-1)) - 1) * 4 + 1).padStart(2, '0')}` : record.month)
+  const period = reportPeriod(kind, month)
+  const source = reportSourceData(state, churchId, period)
+  return {
+    title: `Informe ${kind === 'monthly' ? 'mensual' : 'cuatrimestral'}`,
+    churchName: church?.name || 'Congregación',
+    period,
+    pastor: record.pastor || church?.pastor || '',
+    license: record.license || '',
+    place: record.place || church?.city || church?.name || '',
+    reportDate: String(record.updatedAt || '').slice(0, 10) || today(),
+    secretary: record.secretary || '',
+    summary: record.summary || '',
+    metrics: { ...source.metrics, ...(record.metrics || {}) },
+    pages: record.pages || [],
+    events: source.events,
+    attendance: source.attendance,
+    transactions: source.transactions,
+    kind,
+    changedTotals: Array.isArray(record.metricOverrides) && record.metricOverrides.some((key: string) => automaticMetricKeys.includes(key))
+  }
+}
 const isCash = (row: Row) => !['Cuenta por cobrar', 'Cuenta por pagar'].includes(row.accountType)
 
 export function ReportHub({
@@ -267,28 +312,64 @@ export function ReportHub({
     }
   }, [wanted, scope])
 
-  // "Imprimir resumen" en Nacional imprime la hoja oficial del mes, no la pantalla.
-  const [printingSummary, setPrintingSummary] = useState(false)
+  // Hojas que se imprimen sin abrir el editor: el resumen nacional del mes o todos los informes de un año.
+  const [printJob, setPrintJob] = useState<'' | 'summary' | 'year'>('')
+  const [printYear, setPrintYear] = useState(today().slice(0, 4))
   useEffect(() => {
     if (!canReview || scope) return
-    const start = () => setPrintingSummary(true)
+    const start = () => setPrintJob('summary')
     window.addEventListener(PRINT_NATIONAL_SUMMARY, start)
     return () => window.removeEventListener(PRINT_NATIONAL_SUMMARY, start)
   }, [canReview, scope])
   useEffect(() => {
-    if (!printingSummary) return
+    if (!printJob) return
     const html = document.documentElement
     html.classList.add('report-studio-open')
-    const done = () => setPrintingSummary(false)
+    const done = () => setPrintJob('')
     window.addEventListener('afterprint', done)
-    // Un momento para que el logo y la letra estén listos antes de abrir la impresión.
-    const timer = window.setTimeout(() => window.print(), 300)
+    // Antes de abrir la impresión se espera a que estén cargados el logo y todas las fotos.
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      const images = Array.from(document.querySelectorAll<HTMLImageElement>('#report-print-root img'))
+      await Promise.all(images.map(img => img.decode().catch(() => undefined)))
+      if (!cancelled) window.print()
+    }, 150)
     return () => {
+      cancelled = true
       window.clearTimeout(timer)
       window.removeEventListener('afterprint', done)
       html.classList.remove('report-studio-open')
     }
-  }, [printingSummary])
+  }, [printJob])
+  const yearReports = archivedReports(state, printYear, scope || '')
+  const printYearReports = () => {
+    if (!yearReports.length) {
+      setError(`No hay informes enviados de ${printYear} para descargar.`)
+      return
+    }
+    setError('')
+    setPrintJob('year')
+  }
+  const yearPrintNode = printJob === 'year' && createPortal(
+    <div id="report-print-root">
+      {yearReports.map(record => <DocumentPages key={record.id} {...documentFromRecord(state, record)} />)}
+    </div>,
+    document.body
+  )
+  const yearDownload = (
+    <div className="year-download">
+      <label>
+        <span>Informes del año</span>
+        <select value={printYear} onChange={e => setPrintYear(e.target.value)}>
+          {reportYears(state).map(y => <option key={y}>{y}</option>)}
+        </select>
+      </label>
+      <button type="button" className="secondary-action" onClick={printYearReports}>
+        <Download size={17} /> Descargar en PDF ({yearReports.length})
+      </button>
+      <small>Sale un solo PDF con todos los informes enviados de ese año, para guardar en Drive.</small>
+    </div>
+  )
 
   const history = state.monthlyReports
     .filter(r => !church || inScope(r, church))
@@ -328,12 +409,13 @@ export function ReportHub({
 
     return (
       <>
-        {printingSummary && createPortal(
+        {printJob === 'summary' && createPortal(
           <div id="report-print-root">
             <NationalSummaryDocument state={state} month={month} />
           </div>,
           document.body
         )}
+        {yearPrintNode}
         <section className="report-preparation" aria-label="Recepción nacional de informes">
           <div className="report-preparation-controls">
             <div>
@@ -365,6 +447,7 @@ export function ReportHub({
               </select>
             </label>
           </div>
+          {yearDownload}
 
           <div className="national-kpi-strip" style={{ marginTop: 14 }}>
             <div className="national-kpi-card">
@@ -555,6 +638,7 @@ export function ReportHub({
   // --- FLUJO LOCAL DE CONGREGACIÓN: PREPARAR Y ENVIAR INFORMES (LOTE 3) ---
   return (
     <>
+      {yearPrintNode}
       <section className="report-preparation" aria-label="Preparar informes">
         <div className="report-preparation-controls">
           <div>
@@ -631,6 +715,7 @@ export function ReportHub({
             )}
           </div>
         </details>
+        {yearDownload}
       </section>
       {editing && (
         <ReportStudio
@@ -815,7 +900,7 @@ function ReportStudio({
       const photos = await Promise.all(
         Array.from(files)
           .slice(0, available)
-          .map(f => compressPhoto(f, 1000, 750, 0.75))
+          .map(f => compressPhoto(f, ...PHOTO.activity))
       )
       setPages(p =>
         p.map((page, i) => (i === index ? { ...page, photos: [...page.photos, ...photos].slice(0, 4) } : page))
