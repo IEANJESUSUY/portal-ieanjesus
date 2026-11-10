@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowDownLeft,
@@ -51,6 +51,8 @@ import { whatsappLink } from './whatsapp'
 import { useTableLabels } from './useTableLabels'
 import { cloudApi, cloudEnabled } from './cloud'
 import { EXPENSE_ITEMS, FIXED_EXPENSES, expenseItemOf } from './finance'
+import { type AttendanceStats, attendanceIndex, lastSeenLabel } from './attendance'
+import { computeAlerts, publishAlerts } from './alerts'
 import { LocalChurchCommitteesView, NationalAdminCommitteesView } from './components/CommitteesModule'
 import { QuickMode, requestQuickFlow } from './components/QuickMode'
 import { LocalRequests } from './components/LocalRequests'
@@ -930,13 +932,17 @@ function PersonModal({
 
           {row.id && (
             <div className="attendance-history-box">
-              <h4>Historial de asistencias</h4>
+              <h4>Asistencia</h4>
+              <AttendanceBadge stats={attendanceIndex(state)(row)} full />
+              <h4>Últimos cultos a los que vino</h4>
               {state.attendance.filter(a => a.people.includes(row.id)).length > 0 ? (
                 <ul>
-                  {state.attendance.filter(a => a.people.includes(row.id)).map(a => {
-                    const ev = state.events.find(e => e.id === a.eventId)
-                    return <li key={a.id}>{ev?.name || 'Culto'} · {ev?.date || '—'}</li>
-                  })}
+                  {state.attendance
+                    .filter(a => a.people.includes(row.id))
+                    .map(a => ({ a, ev: state.events.find(e => e.id === a.eventId) }))
+                    .sort((x, y) => String(y.ev?.date || '').localeCompare(String(x.ev?.date || '')))
+                    .slice(0, 8)
+                    .map(({ a, ev }) => <li key={a.id}>{ev?.name || 'Culto'} · {formatDate(ev?.date)}</li>)}
                 </ul>
               ) : (
                 <p>Sin asistencias registradas todavía.</p>
@@ -1576,12 +1582,13 @@ function Editor({
 
 // --- Orden y filtros de la lista de personas ---
 
-type PeopleShow = 'Todos' | 'De la iglesia' | 'Visitas' | 'Bautizados' | 'Sin bautizar'
-type PeopleSort = 'name' | 'oldest' | 'youngest' | 'birthday' | 'baptism'
+type PeopleShow = 'Todos' | 'De la iglesia' | 'Visitas' | 'Bautizados' | 'Sin bautizar' | 'Faltan seguido'
+type PeopleSort = 'name' | 'absent' | 'oldest' | 'youngest' | 'birthday' | 'baptism'
 
-const PEOPLE_SHOW: PeopleShow[] = ['Todos', 'De la iglesia', 'Visitas', 'Bautizados', 'Sin bautizar']
+const PEOPLE_SHOW: PeopleShow[] = ['Todos', 'De la iglesia', 'Visitas', 'Bautizados', 'Sin bautizar', 'Faltan seguido']
 const PEOPLE_SORT: { key: PeopleSort; label: string }[] = [
   { key: 'name', label: 'Nombre (A a la Z)' },
+  { key: 'absent', label: 'Asistencia (los que más faltan primero)' },
   { key: 'oldest', label: 'Edad (mayores primero)' },
   { key: 'youngest', label: 'Edad (menores primero)' },
   { key: 'birthday', label: 'Próximos cumpleaños' },
@@ -1598,9 +1605,10 @@ function baptismLabel(p: Row) {
   return p.baptized === 'Sí' ? 'Sí, sin fecha' : p.baptized === 'No' ? 'No' : '—'
 }
 
-function peopleShowFilter(show: PeopleShow) {
+function peopleShowFilter(show: PeopleShow, attendance: (p: Row) => AttendanceStats) {
   return (p: Row) =>
     show === 'Todos' ||
+    (show === 'Faltan seguido' && ['yellow', 'red'].includes(attendance(p).level)) ||
     (show === 'De la iglesia' && !isVisitStatus(p) && p.status !== 'Inactivo') ||
     (show === 'Visitas' && isVisitStatus(p)) ||
     (show === 'Bautizados' && isBaptized(p)) ||
@@ -1619,11 +1627,12 @@ function daysToBirthday(birthday: string) {
 }
 
 // Quien no tiene el dato va siempre al final de la lista.
-function sortPeople(list: Row[], sort: PeopleSort) {
+function sortPeople(list: Row[], sort: PeopleSort, attendance: (p: Row) => AttendanceStats) {
   const byName = (a: Row, b: Row) => label(a).localeCompare(label(b), 'es', { sensitivity: 'base' })
   const missingLast = (a: unknown, b: unknown) => (a == null || a === '' ? 1 : 0) - (b == null || b === '' ? 1 : 0)
   return [...list].sort((a, b) => {
     if (sort === 'name') return byName(a, b)
+    if (sort === 'absent') return attendance(b).missedInRow - attendance(a).missedInRow || byName(a, b)
     if (sort === 'birthday') {
       const da = daysToBirthday(a.birthday)
       const db = daysToBirthday(b.birthday)
@@ -1635,6 +1644,21 @@ function sortPeople(list: Row[], sort: PeopleSort) {
     const order = sort === 'youngest' ? vb.localeCompare(va) : va.localeCompare(vb)
     return missingLast(va, vb) || order || byName(a, b)
   })
+}
+
+// Barrita de asistencia: verde viene seguido, amarilla viene menos, roja hace muchos cultos que no viene.
+export function AttendanceBadge({ stats, full = false }: { stats: AttendanceStats; full?: boolean }) {
+  const filled = stats.level === 'green' ? 100 : stats.level === 'yellow' ? 55 : stats.level === 'red' ? 20 : 0
+  return (
+    <span className={`attendance-badge ${stats.level}${full ? ' full' : ''}`} title={stats.text}>
+      <span className="attendance-badge-bar" aria-hidden="true"><i style={{ width: `${filled}%` }} /></span>
+      <strong>{stats.text}</strong>
+      <small>
+        {lastSeenLabel(stats)}
+        {stats.monthPct !== null && ` · ${stats.monthPct}% en ${stats.monthLabel} (${stats.monthCame} de ${stats.monthTotal})`}
+      </small>
+    </span>
+  )
 }
 
 // El celular abre WhatsApp con un saludo ya escrito.
@@ -1784,7 +1808,12 @@ function Directory({
       )
   )
   const churchRows = baseRows.filter(r => !selectedChurchId || r.churchId === selectedChurchId)
-  const rows = collection === 'people' ? sortPeople(churchRows.filter(peopleShowFilter(peopleShow)), peopleSort) : churchRows
+  const attendanceOf = useMemo(() => {
+    const index = attendanceIndex(state)
+    const cache = new Map<string, AttendanceStats>()
+    return (p: Row) => cache.get(p.id) || cache.set(p.id, index(p)).get(p.id)!
+  }, [state])
+  const rows = collection === 'people' ? sortPeople(churchRows.filter(peopleShowFilter(peopleShow, attendanceOf)), peopleSort, attendanceOf) : churchRows
   // Los movimientos se muestran del más reciente al más antiguo.
   if (collection === 'transactions') rows.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
   const visibleRows = rows.slice(0, visibleCount)
@@ -2091,6 +2120,7 @@ function Directory({
                 <th style={{ width: 48 }}>Foto</th>
                 <th>Nombre y apellido</th>
                 <th>Tipo</th>
+                <th>Asistencia</th>
                 <th>Celular</th>
                 <th>Nacimiento / Edad</th>
                 <th>Bautismo</th>
@@ -2147,6 +2177,7 @@ function Directory({
                         {normStatus === 'Persona vinculada' ? 'De la iglesia' : normStatus === 'Amigo' ? 'Visita' : normStatus}
                       </span>
                     </td>
+                    <td><AttendanceBadge stats={attendanceOf(r)} /></td>
                     <td><PhoneCell phone={r.phone} name={r.name} /></td>
                     <td>
                       {r.birthday ? (
@@ -6454,6 +6485,22 @@ export default function CRM({
     document.documentElement.classList.toggle('quick-mode-active', quickMode)
     return () => document.documentElement.classList.remove('quick-mode-active')
   }, [quickMode])
+
+  // Avisos de la campanita: se recalculan al cambiar los datos y cada 10 minutos (por los avisos con hora).
+  const [alertTick, setAlertTick] = useState(0)
+  useEffect(() => {
+    const timer = window.setInterval(() => setAlertTick(t => t + 1), 10 * 60 * 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  useEffect(() => {
+    if (!state || !currentUser || !currentWorkspace) {
+      publishAlerts('', [])
+      return
+    }
+    const local = ['church', 'preaching_place'].includes(currentWorkspace.type)
+    const scope = local ? resolveWorkspaceId(state.churches, currentWorkspace) : ''
+    publishAlerts(`${currentUser.username}:${currentWorkspace.id}`, computeAlerts(state, currentWorkspace, scope))
+  }, [state, currentUser?.username, currentWorkspace?.id, alertTick])
 
   async function save(collection: string, record: Row) {
     if (!state) throw new Error('La base local todavía no está disponible.')

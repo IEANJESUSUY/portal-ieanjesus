@@ -17,7 +17,7 @@ step(['scripts/build-web.mjs'], {
 })
 
 let failed = 0
-for (const test of ['inicio-vacio', 'congregacion', 'personas', 'informe', 'nacional', 'base-central', 'app-instalable']) {
+for (const test of ['inicio-vacio', 'congregacion', 'personas', 'avisos', 'informe', 'nacional', 'base-central', 'app-instalable']) {
   try {
     step([`pruebas/${test}.mjs`])
   } catch {

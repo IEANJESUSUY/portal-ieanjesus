@@ -1,6 +1,6 @@
 // Permite abrir el Portal instalado aunque no haya señal: guarda la última versión de la página.
 // Los datos de la base central no se guardan acá (siempre se piden en vivo).
-const CACHE = 'portal-nacional-v1'
+const CACHE = 'portal-nacional-v2'
 const SHELL = ['./', './index.html', './manifest.webmanifest', './logo-portal-nacional.png', './icon-192.png', './icon-512.png', './favicon.svg']
 
 self.addEventListener('install', event => {
@@ -12,6 +12,19 @@ self.addEventListener('activate', event => {
     caches.keys()
       .then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))
       .then(() => self.clients.claim())
+  )
+})
+
+// Al tocar una notificación se abre el Portal (o se trae al frente) en la pantalla del aviso.
+self.addEventListener('notificationclick', event => {
+  event.notification.close()
+  const target = new URL(`./#${event.notification.data?.to || '/'}`, self.registration.scope).href
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const open = list.find(client => client.url.startsWith(self.registration.scope))
+      if (open) return open.focus().then(client => client.navigate?.(target))
+      return self.clients.openWindow(target)
+    })
   )
 })
 

@@ -108,7 +108,13 @@ export function createDemoState(): DemoState {
     }
     state.events.push(event)
     const attendeeChurch = input.churchId === 'demo-place-san-carlos' ? 'demo-ch-maldonado' : input.churchId
-    const attendees = chooseAttendees(attendeeChurch, input.attendanceCount || 10, Number(input.date.slice(-2)) % 16)
+    // Como en la vida real, algunos hermanos dejan de venir: así se ven los avisos y la barrita amarilla o roja.
+    const daysAgo = Math.round((Date.now() - Date.parse(`${input.date}T12:00:00`)) / 86_400_000)
+    const away = new Set([
+      ...(daysAgo <= 40 ? ['demo-person-08', 'demo-person-20'] : []),
+      ...(daysAgo <= 5 ? ['demo-person-11'] : [])
+    ])
+    const attendees = chooseAttendees(attendeeChurch, input.attendanceCount || 10, Number(input.date.slice(-2)) % 16).filter(id => !away.has(id))
     state.attendance.push({
       id: `demo-attendance-${id}`, eventId: id, churchId: attendeeChurch, people: attendees,
       visitors: input.visitors || 0, visitorsByChurch: {}, onlineConfirmations: [],

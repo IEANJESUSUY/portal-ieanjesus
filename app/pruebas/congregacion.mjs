@@ -55,6 +55,7 @@ await run('Congregación en el celular', async ({ browser, check, watch }) => {
   await nav('Personas').click()
   check((await page.locator('.section-tabs').innerText()).replace(/\s+/g, ' ').includes('Células'), 'Personas tiene la pestaña Células')
   await nav('Cultos').click()
+  await page.locator('.section-tab', { hasText: 'Calendario' }).waitFor({ timeout: 5000 }).catch(() => undefined)
   check(await page.locator('.section-tab', { hasText: 'Calendario' }).count() === 1, 'Cultos tiene la pestaña Calendario')
   check(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)), 'nada se sale de la pantalla')
   await page.screenshot({ path: `${shots}/congregacion.png` })

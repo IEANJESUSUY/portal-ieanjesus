@@ -425,6 +425,24 @@
 .people-sort select { min-height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--qm-navy); font-weight: 700; }
 .birthday-hint { display: block; margin-top: 2px; color: #a0670c; font-weight: 700; }
 
+/* Asistencia de cada persona: barrita de color, texto y porcentaje del mes */
+.attendance-badge { display: grid; gap: 3px; min-width: 150px; }
+.attendance-badge-bar { display: block; width: 100%; max-width: 160px; height: 8px; border-radius: 999px; background: #e7edf5; overflow: hidden; }
+.attendance-badge-bar i { display: block; height: 100%; border-radius: 999px; background: #9fb3d6; }
+.attendance-badge strong { font-size: 13.5px; }
+.attendance-badge small { color: #5b6f82; font-size: 12.5px; line-height: 1.35; }
+.attendance-badge.green .attendance-badge-bar i { background: #2f9e5b; }
+.attendance-badge.green strong { color: #1f7a45; }
+.attendance-badge.yellow .attendance-badge-bar i { background: #e0a12b; }
+.attendance-badge.yellow strong { color: #9a6a0c; }
+.attendance-badge.red .attendance-badge-bar i { background: #d24b3a; }
+.attendance-badge.red strong { color: #b4402f; }
+.attendance-badge.none strong { color: #5b6f82; font-weight: 600; }
+.attendance-badge.full { padding: 10px 12px; border-radius: 12px; background: #f7f9fd; margin-bottom: 10px; }
+.attendance-badge.full .attendance-badge-bar { max-width: none; height: 10px; }
+.attendance-badge.full strong { font-size: 15px; }
+.attendance-badge.full small { font-size: 14px; }
+
 /* Servicios fijos del mes en Dinero */
 .fixed-expenses { margin: 0 0 18px; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: #fff; }
 .fixed-expenses-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }

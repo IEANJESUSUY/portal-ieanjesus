@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, LogOut, Menu, RefreshCw, Search, X } from 'lucide-react'
+import { NotificationBell } from './NotificationBell'
 
 export type HeaderProps = {
   onMenu: () => void
@@ -143,6 +144,7 @@ export function Header({ onMenu, workspace, user, onSwitchWorkspace, onLogout }:
       </div>
 
       <div className="topbar-actions">
+        {workspace && <NotificationBell />}
         {workspace && (
           <div className="ws-bar">
             {onSwitchWorkspace && (
