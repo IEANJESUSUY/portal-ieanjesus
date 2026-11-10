@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { groupForPath, navGroups } from '../navigation'
+import { roleOf } from '../roles'
 
 export type SidebarProps = {
   workspace?: { id: string; type: string; name: string; role?: string } | null
@@ -35,11 +36,12 @@ export function Sidebar({ workspace, user, onSwitchWorkspace }: SidebarProps) {
     '/finanzas': CircleDollarSign,
     '/informes': BarChart3
   }
-  const groups = navGroups(type)
+  const role = roleOf(workspace)
+  const groups = navGroups(type, role)
   const items = groups.map(group => ({ to: group.to, label: group.label, short: group.short, icon: icons[group.to] || LayoutDashboard }))
 
   // Una sección queda marcada en cualquiera de sus pestañas.
-  const activeGroup = groupForPath(location.pathname, type)?.to
+  const activeGroup = groupForPath(location.pathname, type, role)?.to
   const itemClass = (to: string, base: string) => ({ isActive }: { isActive: boolean }) =>
     `${base}${(activeGroup ? activeGroup === to : isActive) ? ' active' : ''}`
 

@@ -38,12 +38,24 @@ function writeSession(session: Session | null) {
 
 export const hasCloudSession = () => Boolean(readSession())
 
+// Error de "no hay señal": lo que se estaba guardando queda en el celular y se manda después.
+export class OfflineError extends Error {
+  constructor() {
+    super('Sin señal: queda guardado en este celular y se envía solo cuando vuelva la conexión.')
+  }
+}
+
 async function authRequest(path: string, body: unknown) {
-  const response = await fetch(`${URL_BASE}/auth/v1/${path}`, {
-    method: 'POST',
-    headers: { apikey: ANON_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  })
+  let response: Response
+  try {
+    response = await fetch(`${URL_BASE}/auth/v1/${path}`, {
+      method: 'POST',
+      headers: { apikey: ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+  } catch {
+    throw new OfflineError()
+  }
   const result = await response.json().catch(() => ({}))
   if (!response.ok) {
     const message = String(result.error_description || result.msg || result.message || '')
@@ -68,8 +80,17 @@ function toSession(result: any): Session {
   }
 }
 
+// Las cuentas de Secretaría, Tesorería y comités entran con un usuario (secretaria.maldonado) en vez de
+// un correo. Por dentro se guardan como usuario@cuentas.ieanjesus.uy, una dirección que no recibe correos.
+export const ACCOUNT_DOMAIN = 'cuentas.ieanjesus.uy'
+export const toLoginEmail = (input: string) => {
+  const value = input.trim().toLowerCase()
+  return value.includes('@') ? value : `${value.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9._-]/g, '')}@${ACCOUNT_DOMAIN}`
+}
+export const loginName = (email: string) => (email.endsWith(`@${ACCOUNT_DOMAIN}`) ? email.split('@')[0] : email)
+
 export async function cloudSignIn(email: string, password: string) {
-  const session = toSession(await authRequest('token?grant_type=password', { email: email.trim(), password }))
+  const session = toSession(await authRequest('token?grant_type=password', { email: toLoginEmail(email), password }))
   writeSession(session)
   cache = null
   return session
@@ -78,7 +99,7 @@ export async function cloudSignIn(email: string, password: string) {
 // Crea el usuario; queda sin acceso hasta que la Administración Nacional le asigne un espacio.
 export async function cloudSignUp(email: string, password: string) {
   if (password.length < 8) throw new Error('La contraseña tiene que tener al menos 8 letras o números.')
-  const result = await authRequest('signup', { email: email.trim(), password })
+  const result = await authRequest('signup', { email: toLoginEmail(email), password })
   if (result.access_token) writeSession(toSession(result))
   return Boolean(result.access_token)
 }
@@ -103,7 +124,9 @@ async function token() {
     try {
       session = toSession(await authRequest('token?grant_type=refresh_token', { refresh_token: session.refresh_token }))
       writeSession(session)
-    } catch {
+    } catch (e) {
+      // Sin señal no se cierra la sesión: se renueva cuando vuelva la conexión.
+      if (e instanceof OfflineError) throw e
       writeSession(null)
       throw new Error('Tu sesión terminó. Volvé a entrar con tu correo y contraseña.')
     }
@@ -112,19 +135,20 @@ async function token() {
 }
 
 async function rest(path: string, init: RequestInit = {}) {
+  const access = await token()
   let response: Response
   try {
     response = await fetch(`${URL_BASE}/rest/v1/${path}`, {
       ...init,
       headers: {
         apikey: ANON_KEY,
-        Authorization: `Bearer ${await token()}`,
+        Authorization: `Bearer ${access}`,
         'Content-Type': 'application/json',
         ...(init.headers || {})
       }
     })
   } catch {
-    throw new Error('Sin conexión a internet. Revisá la conexión y volvé a intentar.')
+    throw new OfflineError()
   }
   if (!response.ok) {
     const result = await response.json().catch(() => ({}))
@@ -178,15 +202,16 @@ async function uploadPhoto(dataUrl: string, folder: string) {
   const blob = await (await fetch(dataUrl)).blob()
   const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/jpeg' ? 'jpg' : 'webp'
   const path = `${folder}/${crypto.randomUUID()}.${ext}`
+  const access = await token()
   let response: Response
   try {
     response = await fetch(`${URL_BASE}/storage/v1/object/${BUCKET}/${path}`, {
       method: 'POST',
-      headers: { apikey: ANON_KEY, Authorization: `Bearer ${await token()}`, 'Content-Type': blob.type, 'cache-control': 'max-age=31536000', 'x-upsert': 'false' },
+      headers: { apikey: ANON_KEY, Authorization: `Bearer ${access}`, 'Content-Type': blob.type, 'cache-control': 'max-age=31536000', 'x-upsert': 'false' },
       body: blob
     })
   } catch {
-    throw new Error('Sin conexión a internet: no se pudo subir la foto. Probá de nuevo.')
+    throw new OfflineError()
   }
   if (!response.ok) throw new Error('No se pudo subir la foto. Probá de nuevo con buena señal.')
   uploadedPaths.set(dataUrl, path)
@@ -249,16 +274,112 @@ async function upsert(rows: any[]) {
   }
 }
 
+// --- Sin señal: cambios pendientes y última copia de los datos -------------------------------------
+// Lo que se guarda sin internet queda en el celular (IndexedDB) y se envía solo, en el mismo orden,
+// cuando vuelve la conexión. La última copia de los datos permite abrir el Portal sin señal.
+// La fila (con su congregación y comité) se calcula al guardar, con los datos de ese momento.
+type Pending = { collection: string; record: any; row: ReturnType<typeof columnsFor>; at: string }
+type OutboxSnapshot = { pending: number; sending: boolean; offline: boolean; failed: string }
+let outbox: OutboxSnapshot = { pending: 0, sending: false, offline: false, failed: '' }
+const outboxListeners = new Set<() => void>()
+const setOutbox = (change: Partial<OutboxSnapshot>) => {
+  outbox = { ...outbox, ...change }
+  outboxListeners.forEach(fn => fn())
+}
+export const subscribeOutbox = (fn: () => void) => { outboxListeners.add(fn); return () => { outboxListeners.delete(fn) } }
+export const outboxState = () => outbox
+
+function kv<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest | void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open('portal-nube', 1)
+    open.onupgradeneeded = () => open.result.createObjectStore('kv')
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const tx = open.result.transaction('kv', mode)
+      const request = run(tx.objectStore('kv'))
+      tx.oncomplete = () => { open.result.close(); resolve(request ? (request.result as T) : (undefined as T)) }
+      tx.onerror = () => { open.result.close(); reject(tx.error) }
+    }
+  })
+}
+const userKey = (name: string) => `${name}:${readSession()?.user.id || 'anon'}`
+const readPending = async () => (await kv<Pending[] | undefined>('readonly', s => s.get(userKey('outbox')))) || []
+const writePending = (list: Pending[]) => kv<void>('readwrite', s => { s.put(list, userKey('outbox')) })
+
+async function sendRecord(row: ReturnType<typeof columnsFor>) {
+  const stored = { ...row, body: await storePhotos(row.body, folderFor(row)) }
+  await upsert([stored])
+  return stored
+}
+
+let flushing: Promise<void> | null = null
+// Manda los cambios pendientes. Si sigue sin señal, quedan para la próxima.
+export function flushOutbox(): Promise<void> {
+  if (!cloudEnabled() || !readSession()) return Promise.resolve()
+  flushing ||= (async () => {
+    let list = await readPending()
+    setOutbox({ pending: list.length })
+    if (!list.length) return
+    setOutbox({ sending: true })
+    try {
+      while (list.length) {
+        const [next, ...rest] = list
+        try {
+          await sendRecord(next.row)
+        } catch (e) {
+          if (e instanceof OfflineError) { setOutbox({ offline: true }); break }
+          // Un cambio que la base rechaza (por ejemplo, por permisos) no frena a los demás.
+          setOutbox({ failed: `No se pudo enviar un cambio guardado sin señal: ${(e as Error).message}` })
+        }
+        list = rest
+        await writePending(list)
+        setOutbox({ pending: list.length, offline: false })
+      }
+    } finally {
+      setOutbox({ sending: false })
+    }
+  })().finally(() => { flushing = null })
+  return flushing
+}
+
+if (typeof window !== 'undefined' && cloudEnabled()) {
+  window.addEventListener('online', () => { setOutbox({ offline: false }); void flushOutbox() })
+  window.addEventListener('offline', () => setOutbox({ offline: true }))
+  window.setInterval(() => { if (outbox.pending) void flushOutbox() }, 30_000)
+}
+
+// Aplica sobre los datos lo que todavía no llegó a la base, para que se vea igual que si hubiera señal.
+async function withPending(state: Data) {
+  for (const item of await readPending()) {
+    if (!state[item.collection]) continue
+    state[item.collection] = [...state[item.collection].filter(r => r.id !== item.record.id), await showPhotos(item.record)]
+  }
+  return state
+}
+
 export async function cloudApi(path: string, body?: any): Promise<any> {
   if (path === 'state') {
-    const state = empty()
-    const rows = await allRows()
-    await signPhotos(rows)
-    for (const row of rows) {
-      if (state[row.collection]) state[row.collection].push({ ...(await showPhotos(row.body)), id: row.id })
+    let state = empty()
+    try {
+      await flushOutbox()
+      const rows = await allRows()
+      await signPhotos(rows)
+      for (const row of rows) {
+        if (state[row.collection]) state[row.collection].push({ ...(await showPhotos(row.body)), id: row.id })
+      }
+      setOutbox({ offline: false })
+      void kv('readwrite', s => { s.put(state, userKey('state')) }).catch(() => undefined)
+    } catch (e) {
+      if (!(e instanceof OfflineError)) throw e
+      // Sin señal: se abre con la última copia guardada en este celular.
+      const saved = await kv<Data | undefined>('readonly', s => s.get(userKey('state'))).catch(() => undefined)
+      if (!saved) throw new Error('Sin señal y todavía no hay datos guardados en este celular. Conectate a internet una vez para empezar.')
+      state = { ...empty(), ...saved }
+      setOutbox({ offline: true })
     }
-    cache = state
-    return state
+    cache = await withPending(state)
+    setOutbox({ pending: (await readPending()).length })
+    return cache
   }
   const state = cache || (await cloudApi('state'))
   if (path === 'restore') {
@@ -278,9 +399,21 @@ export async function cloudApi(path: string, body?: any): Promise<any> {
   const collection = path.split('/').pop()!
   const record = prepareRecord(state, collection, await mapStrings(body, toReference))
   const row = columnsFor(collection, record, state)
-  const stored = { ...row, body: await storePhotos(row.body, folderFor(row)) }
-  await upsert([stored])
-  const shown = { ...(await showPhotos(stored.body)), id: record.id }
+  let shown: any
+  // Si ya hay cambios esperando, este va detrás de ellos para respetar el orden.
+  const queued = (await readPending()).length > 0
+  try {
+    if (queued) throw new OfflineError()
+    const stored = await sendRecord(row)
+    shown = { ...(await showPhotos(stored.body)), id: record.id }
+  } catch (e) {
+    if (!(e instanceof OfflineError)) throw e
+    const list = [...(await readPending()), { collection, record, row, at: new Date().toISOString() }]
+    await writePending(list)
+    setOutbox({ pending: list.length, offline: !queued || outbox.offline })
+    shown = { ...(await showPhotos(record)), id: record.id }
+    if (queued) void flushOutbox()
+  }
   state[collection] = [...state[collection].filter((r: { id: string }) => r.id !== record.id), shown]
   return shown
 }
@@ -304,10 +437,61 @@ export async function assignMember(input: { email: string; spaceType: string; ch
   })
 }
 
-export const removeMember = (id: string) => rest(`memberships?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' })
+export const removeMember = (id: string) => rest('rpc/remove_membership', { method: 'POST', body: JSON.stringify({ p_id: id }) })
+
+// Crea una cuenta con usuario y contraseña (Secretaría, Tesorería o un comité) y le da su espacio.
+// Se registra sin guardar su sesión: quien la crea sigue adentro con su propia cuenta.
+export async function createAccount(input: { username: string; password: string; spaceType: string; churchId?: string; committeeKey?: string; role: string; displayName?: string }) {
+  if (input.password.length < 8) throw new Error('La contraseña tiene que tener al menos 8 letras o números.')
+  const email = toLoginEmail(input.username)
+  try {
+    await authRequest('signup', { email, password: input.password })
+  } catch (e) {
+    // Si el usuario ya existía (por ejemplo, la secretaría anterior), se le cambia la contraseña y se reasigna.
+    if (!/ya tiene usuario/.test((e as Error).message)) throw e
+    await setMemberPassword(email, input.password)
+  }
+  await assignMember({ ...input, email })
+  return email
+}
+
+// Nueva contraseña para una cuenta de Secretaría, Tesorería o comité (la usan Nacional y el pastor).
+export const setMemberPassword = (email: string, password: string) =>
+  rest('rpc/set_account_password', { method: 'POST', body: JSON.stringify({ p_email: toLoginEmail(email), p_password: password }) })
+
+// Cambia la congregación de una persona (por ejemplo, un pastor que pasa a otra iglesia).
+export const moveMember = (id: string, churchId: string) =>
+  rest(`memberships?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ church_id: churchId }) })
+
+// Cada uno puede cambiar su propia contraseña.
+export async function changeOwnPassword(password: string) {
+  if (password.length < 8) throw new Error('La contraseña tiene que tener al menos 8 letras o números.')
+  const response = await fetch(`${URL_BASE}/auth/v1/user`, {
+    method: 'PUT',
+    headers: { apikey: ANON_KEY, Authorization: `Bearer ${await token()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password })
+  }).catch(() => null)
+  if (!response?.ok) throw new Error('No se pudo cambiar la contraseña. Probá de nuevo con señal.')
+}
 
 // Espacios a los que puede entrar el usuario, según sus permisos en la tabla memberships.
-export async function cloudSpaces(): Promise<{ email: string; displayName: string; spaces: CloudSpace[] }> {
+type SpacesResult = { email: string; displayName: string; spaces: CloudSpace[] }
+
+// Sin señal, quien ya entró en este celular sigue entrando con sus espacios guardados.
+export async function cloudSpaces(): Promise<SpacesResult> {
+  const key = `pn_cloud_spaces:${readSession()?.user.id || ''}`
+  try {
+    const result = await fetchSpaces()
+    try { localStorage.setItem(key, JSON.stringify(result)) } catch { /* sin almacenamiento */ }
+    return result
+  } catch (e) {
+    const saved = (() => { try { return localStorage.getItem(key) } catch { return null } })()
+    if (e instanceof OfflineError && saved) return JSON.parse(saved)
+    throw e
+  }
+}
+
+async function fetchSpaces(): Promise<SpacesResult> {
   const session = readSession()
   if (!session) throw new Error('Tu sesión terminó.')
   const memberships: any[] = (await rest(`memberships?select=*&user_id=eq.${encodeURIComponent(session.user.id)}`)) || []
@@ -331,5 +515,5 @@ export async function cloudSpaces(): Promise<{ email: string; displayName: strin
     }
   }
   const unique = spaces.filter((s, i) => spaces.findIndex(o => o.id === s.id) === i)
-  return { email: session.user.email, displayName: memberships.find(m => m.display_name)?.display_name || session.user.email, spaces: unique }
+  return { email: session.user.email, displayName: memberships.find(m => m.display_name)?.display_name || loginName(session.user.email), spaces: unique }
 }

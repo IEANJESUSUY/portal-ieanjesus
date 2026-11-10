@@ -1,0 +1,76 @@
+// Cada rol ve lo suyo (Pastor, Secretaría, Tesorería) y el mensaje por WhatsApp a varios.
+import { readFileSync } from 'node:fs'
+import { phone, portableUrl, run, shots } from './utiles.mjs'
+
+async function enterAs(page, role) {
+  await page.goto(portableUrl)
+  await page.getByRole('button', { name: /Ver demostración/ }).click()
+  await page.locator('button[title^="Cambiar de espacio"]').first().click()
+  await page.locator('.picker-role').getByRole('button', { name: role }).click()
+  await page.getByRole('button', { name: /Congregación Maldonado/ }).click()
+  await page.getByRole('button', { name: 'Saltar' }).click()
+  await page.getByText('Dios te bendiga').waitFor()
+}
+const bar = page => page.locator('.mobile-bottom-nav').innerText().then(t => t.replace(/\s+/g, ' ').trim())
+
+await run('Tesorería', async ({ browser, check, watch }) => {
+  const page = await (await browser.newContext(phone)).newPage()
+  watch(page)
+  await enterAs(page, 'Tesorería')
+  check(await bar(page) === 'Inicio Dinero Informes', 'el menú tiene solo Inicio, Dinero e Informes')
+  check(await page.locator('.qm-action').count() === 2, 'el Inicio muestra solo anotar dinero e informe')
+  await page.evaluate(() => { location.hash = '#/personas' })
+  await page.getByText('Dios te bendiga').waitFor()
+  check(true, 'si entra a Personas, vuelve al Inicio')
+  await page.locator('.mobile-bottom-nav').getByRole('link', { name: 'Dinero' }).click()
+  await page.locator('.fixed-expenses').waitFor()
+  check(await page.getByRole('button', { name: /montos de diezmos/ }).count() === 1, 'puede ver los montos de diezmos')
+  await page.locator('.mobile-bottom-nav').getByRole('link', { name: 'Inicio' }).click()
+  await page.getByRole('button', { name: /Informe del mes/ }).click()
+  await page.getByText(/Revisión nacional|Vista de consulta/).first().waitFor()
+  check(await page.getByRole('button', { name: /Enviar informe/ }).count() === 0, 'el informe se abre solo para ver (no lo envía)')
+})
+
+await run('Secretaría', async ({ browser, check, watch }) => {
+  const page = await (await browser.newContext(phone)).newPage()
+  watch(page)
+  await enterAs(page, 'Secretaría')
+  check(await bar(page) === 'Inicio Personas Cultos Dinero Informes', 'tiene las 5 secciones')
+  await page.getByRole('button', { name: /Anotar dinero/ }).click()
+  await page.getByRole('button', { name: /Entró plata/ }).click()
+  await page.getByLabel('Importe en pesos').fill('500')
+  await page.getByRole('button', { name: /Siguiente/ }).click()
+  check(await page.getByRole('button', { name: /^Diezmos/ }).count() === 0, 'no anota diezmos (eso es de Tesorería o el pastor)')
+  check(await page.getByRole('button', { name: /^Ofrenda/ }).count() === 1, 'sí anota ofrendas')
+  await page.evaluate(() => { location.hash = '#/finanzas' })
+  await page.locator('.fixed-expenses').waitFor()
+  check(await page.getByRole('button', { name: /montos de diezmos/ }).count() === 0, 'no ve los montos de diezmos')
+})
+
+await run('Mensaje por WhatsApp a varios', async ({ browser, check, watch }) => {
+  const context = await browser.newContext({ ...phone, acceptDownloads: true })
+  const page = await context.newPage()
+  watch(page)
+  await enterAs(page, 'Pastor')
+  await page.locator('.mobile-bottom-nav').getByRole('link', { name: 'Personas' }).click()
+  await page.getByRole('button', { name: 'Faltan seguido', exact: true }).click()
+  await page.getByRole('button', { name: /Mensaje por WhatsApp/ }).click()
+  await page.locator('.bulk-wa').waitFor()
+  await page.getByRole('button', { name: 'Te extrañamos' }).click()
+  const preview = await page.locator('.bulk-wa-preview').innerText()
+  check(/Así le llega a \w+: Hola \w+, te extrañamos/.test(preview), `el mensaje se personaliza: «${preview.slice(0, 70)}…»`)
+
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Guardar contactos/ }).click()])
+  const vcf = readFileSync(await download.path(), 'utf8')
+  check(download.suggestedFilename().endsWith('.vcf') && vcf.includes('BEGIN:VCARD') && vcf.includes('TEL;TYPE=CELL:+598'), 'descarga los contactos en un archivo para el celular')
+
+  await page.getByRole('button', { name: /Empezar a enviar/ }).click()
+  const first = await page.locator('.bulk-wa-step h3').innerText()
+  const link = await page.locator('.bulk-wa-open').getAttribute('href')
+  check(/^https:\/\/wa\.me\/598\d{8}\?text=Hola/.test(link || ''), `abre WhatsApp de ${first} con el mensaje escrito`)
+  const [popup] = await Promise.all([context.waitForEvent('page'), page.locator('.bulk-wa-open').click()])
+  await popup.close()
+  const next = await page.locator('.bulk-wa-step h3, .people-import-done strong').first().innerText()
+  check(next !== first, `después de abrir, pasa a la siguiente: ${next}`)
+  await page.screenshot({ path: `${shots}/whatsapp.png` })
+})

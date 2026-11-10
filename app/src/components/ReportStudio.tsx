@@ -256,7 +256,8 @@ export function ReportHub({
   save,
   compressPhoto,
   canReview = false,
-  committeeKey
+  committeeKey,
+  viewOnly = false
 }: {
   state: State
   scope: string
@@ -264,6 +265,8 @@ export function ReportHub({
   compressPhoto: (f: File, w?: number, h?: number, q?: number) => Promise<string>
   canReview?: boolean
   committeeKey?: string
+  // Tesorería ve los informes de su iglesia pero no los modifica.
+  viewOnly?: boolean
 }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -295,7 +298,7 @@ export function ReportHub({
         ? `${record.month.slice(0, 4)}-${String((Number(record.month.slice(-1)) - 1) * 4 + 1).padStart(2, '0')}`
         : record?.month) ||
       month
-    setEditing({ kind, month: savedMonth, church: record?.preachingPlaceId || record?.churchId || chId, record, readOnly: canReview && !scope })
+    setEditing({ kind, month: savedMonth, church: record?.preachingPlaceId || record?.churchId || chId, record, readOnly: (canReview && !scope) || viewOnly })
     setError('')
   }
 

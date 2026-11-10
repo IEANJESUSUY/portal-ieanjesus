@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { ArrowRight, Eye, EyeOff, LockKeyhole } from 'lucide-react'
-import { cloudSignIn, cloudSignOut, cloudSignUp, cloudSpaces, hasCloudSession } from '../cloud'
+import { cloudSignIn, cloudSignOut, cloudSignUp, cloudSpaces, hasCloudSession, OfflineError } from '../cloud'
 import { whatsappLink } from '../whatsapp'
 
 const SUPPORT_PHONE = '099882240'
@@ -26,7 +26,8 @@ export function CloudLogin({ onSelectUser }: { onSelectUser?: (user: any) => voi
     setBusy(true)
     enter()
       .catch(async e => {
-        await cloudSignOut()
+        // Sin señal no se cierra la sesión: se puede volver a intentar cuando haya conexión.
+        if (!(e instanceof OfflineError)) await cloudSignOut()
         setError((e as Error).message)
       })
       .finally(() => setBusy(false))
@@ -58,8 +59,17 @@ export function CloudLogin({ onSelectUser }: { onSelectUser?: (user: any) => voi
   return (
     <form className="cloud-login" onSubmit={submit}>
       <label>
-        <span>Correo</span>
-        <input type="email" autoComplete="username" inputMode="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="tucorreo@gmail.com" />
+        <span>{creating ? 'Correo' : 'Correo o usuario'}</span>
+        <input
+          type={creating ? 'email' : 'text'}
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          required
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder={creating ? 'tucorreo@gmail.com' : 'tucorreo@gmail.com o secretaria.maldonado'}
+        />
       </label>
       <label>
         <span>Contraseña</span>

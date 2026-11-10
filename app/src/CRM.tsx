@@ -43,16 +43,18 @@ import {
 import { empty as emptyState, localApi } from './local-data'
 import { CloudLogin } from './components/CloudLogin'
 import { UsersAdmin } from './components/UsersAdmin'
+import { BulkWhatsApp } from './components/BulkWhatsApp'
 import { createDemoState } from './demo-data'
 import { OperationalHome } from './components/OperationalHome'
 import { PRINT_NATIONAL_SUMMARY, ReportHub } from './components/ReportStudio'
 import { CalendarModule, CalendarPreviewCard, EventModal } from './components/CalendarModule'
 import { whatsappLink } from './whatsapp'
 import { useTableLabels } from './useTableLabels'
-import { cloudApi, cloudEnabled } from './cloud'
+import { changeOwnPassword, cloudApi, cloudEnabled } from './cloud'
 import { EXPENSE_ITEMS, FIXED_EXPENSES, expenseItemOf } from './finance'
 import { type AttendanceStats, attendanceIndex, lastSeenLabel } from './attendance'
 import { computeAlerts, publishAlerts } from './alerts'
+import { activeRole, can, canSeePath, roleOf } from './roles'
 import { LocalChurchCommitteesView, NationalAdminCommitteesView } from './components/CommitteesModule'
 import { QuickMode, requestQuickFlow } from './components/QuickMode'
 import { LocalRequests } from './components/LocalRequests'
@@ -1152,7 +1154,8 @@ function FinanceMovementModal({
                 value={draft.category || 'Ofrenda'}
                 onChange={e => setDraft(d => ({ ...d, category: e.target.value }))}
               >
-                {['Diezmo', 'Ofrenda', 'Donación', 'Otro']
+                {/* Secretaría anota ofrendas y otros ingresos; los diezmos los anota Tesorería o el pastor. */}
+                {['Diezmo', 'Ofrenda', 'Donación', 'Otro'].filter(c => c !== 'Diezmo' || can(activeRole(), 'tithe'))
                   .concat([draft.category].filter(c => c && !['Diezmo', 'Ofrenda', 'Donación', 'Gasto', 'Otro'].includes(c)))
                   .map(c => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -1764,6 +1767,7 @@ function Directory({
   const [visibleCount, setVisibleCount] = useState(12)
   const [showTitheAmounts, setShowTitheAmounts] = useState(false)
   const [peopleShow, setPeopleShow] = useState<PeopleShow>('Todos')
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [peopleSort, setPeopleSort] = useState<PeopleSort>('name')
 
   useEffect(() => {
@@ -1844,6 +1848,14 @@ function Directory({
 
   return (
     <>
+      {bulkOpen && collection === 'people' && (
+        <BulkWhatsApp
+          people={rows}
+          churchName={state.churches.find(c => c.id === scope)?.name || 'Congregación'}
+          filterName={peopleShow === 'Todos' ? 'Todas las personas' : peopleShow}
+          onClose={() => setBulkOpen(false)}
+        />
+      )}
       <div className="page-title-row">
         <div>
           <h2>{schema.title}</h2>
@@ -1869,6 +1881,11 @@ function Directory({
                   <Upload size={17} /> Importar del formulario
                 </button>
               )}
+              {scope && can(activeRole(), 'messages') && (
+                <button className="secondary-action whatsapp-action" onClick={() => setBulkOpen(true)}>
+                  <MessageCircle size={17} /> Mensaje por WhatsApp
+                </button>
+              )}
               <button
                 className="secondary-action"
                 onClick={() => edit('people', { id: '', churchId: scope, status: 'Amigo' })}
@@ -1883,7 +1900,7 @@ function Directory({
               </button>
             </>
           )}
-          {collection === 'transactions' && scope && rows.some(isTitheTransaction) && (
+          {collection === 'transactions' && scope && rows.some(isTitheTransaction) && can(activeRole(), 'tithe') && (
             <button
               type="button"
               className="secondary-action"
@@ -4251,7 +4268,7 @@ function Reports({
         </section>
       ) : (
         save && (
-          <ReportHub state={state} scope={scope} save={save} compressPhoto={compressPhoto} canReview={canReview} />
+          <ReportHub state={state} scope={scope} save={save} compressPhoto={compressPhoto} canReview={canReview} viewOnly={!can(activeRole(), 'editReports')} />
         )
       )}
 
@@ -6385,6 +6402,8 @@ export default function CRM({
   const [editor, setEditor] = useState<{ collection: string; row: Row } | null>(null)
   const [matcherOpen, setMatcherOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  // Demostración y preparación local: con qué rol se entra a una congregación (para probar cada cuenta).
+  const [pickerRole, setPickerRole] = useState<'Pastor' | 'Secretaría' | 'Tesorería'>('Pastor')
   const [returnFormAssignment, setReturnFormAssignment] = useState<Row | null>(null)
   const [breakdownModal, setBreakdownModal] = useState<{ title: string; txs: Row[] } | null>(null)
   const [consolidatePreaching, setConsolidatePreaching] = useState(false)
@@ -6499,8 +6518,11 @@ export default function CRM({
     }
     const local = ['church', 'preaching_place'].includes(currentWorkspace.type)
     const scope = local ? resolveWorkspaceId(state.churches, currentWorkspace) : ''
-    publishAlerts(`${currentUser.username}:${currentWorkspace.id}`, computeAlerts(state, currentWorkspace, scope))
-  }, [state, currentUser?.username, currentWorkspace?.id, alertTick])
+    // Tesorería recibe solo los avisos de dinero e informes.
+    const alerts = computeAlerts(state, currentWorkspace, scope)
+      .filter(a => roleOf(currentWorkspace) !== 'tesoreria' || /^(fixed|rep)-/.test(a.id))
+    publishAlerts(`${currentUser.username}:${currentWorkspace.id}:${currentWorkspace.role || ''}`, alerts)
+  }, [state, currentUser?.username, currentWorkspace?.id, currentWorkspace?.role, alertTick])
 
   async function save(collection: string, record: Row) {
     if (!state) throw new Error('La base local todavía no está disponible.')
@@ -6727,13 +6749,28 @@ export default function CRM({
             <p>{isDemoMode ? 'Elige un área para recorrer los datos de ejemplo.' : 'Elige el área que necesitas consultar en esta preparación local.'}</p>
           </div>
 
+          {(isLocalPreparation || isDemoMode) && localChurchSpaces.length > 0 && (
+            <div className="picker-role" role="group" aria-label="Entrar a la congregación como">
+              <span>Entrar a una congregación como:</span>
+              {(['Pastor', 'Secretaría', 'Tesorería'] as const).map(option => (
+                <button key={option} type="button" aria-pressed={pickerRole === option} className={pickerRole === option ? 'active' : ''} onClick={() => setPickerRole(option)}>
+                  {option}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="demo-accounts-grid">
             {availableSpaces.map((sp: any) => (
               <button
                 key={sp.id}
                 type="button"
                 className="demo-user-btn workspace-choice"
-                onClick={() => onSelectWorkspace?.(sp)}
+                onClick={() => onSelectWorkspace?.(
+                  ['church', 'preaching_place'].includes(sp.type) && pickerRole !== 'Pastor' && (isLocalPreparation || isDemoMode)
+                    ? { ...sp, role: pickerRole }
+                    : sp
+                )}
               >
                 <div>
                   <span
@@ -6765,10 +6802,10 @@ export default function CRM({
 
           {isLocalPreparation && (
             <div className="workspace-picker-note" role="note">
-              <strong>Importante: esto todavía no inicia sesión como otra persona.</strong>
+              <strong>Esto es para probar cómo ve cada rol, no es un inicio de sesión.</strong>
               <span>
-                La vista de congregación solo aparece después de crearla en Iglesias. Pastor, Secretaría y Tesorería
-                necesitarán cuentas individuales y permisos reales; no se simulan con este selector.
+                La vista de congregación aparece después de registrarla en Iglesias. Con la base central, cada persona
+                entra con su propia cuenta y solo ve lo que le corresponde.
               </span>
               {!localChurchSpaces.length && <span>Aún no hay congregaciones registradas en esta preparación local.</span>}
             </div>
@@ -6803,6 +6840,7 @@ export default function CRM({
   }
 
   const collection = routes[path]
+  const role = activeRole()
 
   // Tareas asignadas a la congregación actual (ordenadas de más reciente a más antigua)
   const localAssignments = state.activityAssignments
@@ -6839,7 +6877,10 @@ export default function CRM({
 
       {/* Cada pantalla entra con una animación corta al cambiar de sección o pestaña. */}
       <div key={path} className="page-enter">
-      {quickMode ? (
+      {!canSeePath(role, path) ? (
+        // Una pantalla que este rol no usa (por ejemplo, Personas para Tesorería) vuelve al Inicio.
+        <Navigate to="/" replace />
+      ) : quickMode ? (
         <QuickMode
           key={activeScope}
           state={state}
@@ -6847,6 +6888,7 @@ export default function CRM({
           workspaceName={currentWorkspace?.name || 'Congregación'}
           assignments={localAssignments}
           save={save}
+          role={role}
           onOpenFullReport={() => navigate('/informes?crear=monthly')}
         />
       ) : path === '/calendario' ? (
@@ -6934,7 +6976,8 @@ export default function CRM({
           state={state}
           onRestore={clean => setState(clean)}
           allowRestore={wsType !== 'national_admin' || cloudEnabled()}
-          showUsers={cloudEnabled() && wsType === 'national_admin'}
+          showUsers={cloudEnabled() && (wsType === 'national_admin' || (isLocalSpace && role === 'full'))}
+          usersChurchId={wsType === 'national_admin' ? undefined : activeScope}
         />
       ) : path === '/informes' ? (
         <Reports
@@ -7083,8 +7126,42 @@ export default function CRM({
 
 // --- Configuración y Respaldos ---
 
+// Cada uno puede cambiar su contraseña (por ejemplo, la secretaría después de recibir la cuenta).
+function OwnPassword() {
+  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  return (
+    <form
+      className="restore-box own-password"
+      onSubmit={async e => {
+        e.preventDefault()
+        setBusy(true)
+        setMessage('')
+        try {
+          await changeOwnPassword(password)
+          setPassword('')
+          setMessage('Listo: tu contraseña nueva ya funciona.')
+        } catch (err) {
+          setMessage((err as Error).message)
+        } finally {
+          setBusy(false)
+        }
+      }}
+    >
+      <h3>Mi contraseña</h3>
+      <label>
+        <span>Contraseña nueva (al menos 8 letras o números)</span>
+        <input type="password" autoComplete="new-password" minLength={8} required value={password} onChange={e => setPassword(e.target.value)} />
+      </label>
+      <button type="submit" className="secondary-action" disabled={busy}>{busy ? 'Guardando…' : 'Cambiar mi contraseña'}</button>
+      {message && <p role="status" className="section-help">{message}</p>}
+    </form>
+  )
+}
+
 // Con base central, la Administración Nacional también puede subir acá el respaldo de lo cargado en un dispositivo.
-function Configuration({ state, onRestore, allowRestore = true, showUsers = false }: { state: State; onRestore: (cleanState: State) => void; allowRestore?: boolean; showUsers?: boolean }) {
+function Configuration({ state, onRestore, allowRestore = true, showUsers = false, usersChurchId }: { state: State; onRestore: (cleanState: State) => void; allowRestore?: boolean; showUsers?: boolean; usersChurchId?: string }) {
   const [restoreDraft, setRestoreDraft] = useState<State | null>(null)
   const [restoreError, setRestoreError] = useState('')
   const [restoreSuccess, setRestoreSuccess] = useState('')
@@ -7143,7 +7220,8 @@ function Configuration({ state, onRestore, allowRestore = true, showUsers = fals
         Administra las copias de seguridad de Portal Nacional. Los respaldos incluyen todas las iglesias, actividades nacionales, asignaciones, finanzas y personas.
       </p>
 
-      {showUsers && <UsersAdmin state={state} />}
+      {cloudEnabled() && <OwnPassword />}
+      {showUsers && <UsersAdmin state={state} churchId={usersChurchId} />}
 
       <div className="restore-box">
         <h3>1. Exportar copia de seguridad</h3>

@@ -2,12 +2,22 @@
 // Cada sección agrupa pantallas que antes eran entradas separadas del menú; se ven como pestañas arriba.
 // La comunicación se hace por WhatsApp, así que no hay sección de mensajes.
 
+import type { Role } from './roles'
+
 export type NavTab = { to: string; label: string }
 export type NavGroup = { to: string; label: string; short: string; tabs: NavTab[]; also?: string[] }
 
 export const isLocalWorkspace = (type?: string) => type === 'church' || type === 'preaching_place'
 
-export function localGroups(type?: string): NavGroup[] {
+export function localGroups(type?: string, role: Role = 'full'): NavGroup[] {
+  // Tesorería solo trabaja con el dinero y consulta los informes.
+  if (role === 'tesoreria') {
+    return [
+      { to: '/', label: 'Inicio', short: 'Inicio', tabs: [] },
+      { to: '/finanzas', label: 'Dinero', short: 'Dinero', tabs: [] },
+      { to: '/informes', label: 'Informes', short: 'Informes', tabs: [] }
+    ]
+  }
   return [
     { to: '/', label: 'Inicio', short: 'Inicio', tabs: [] },
     {
@@ -86,14 +96,14 @@ const committeeGroups: NavGroup[] = [
   { to: '/informes', label: 'Informes', short: 'Informes', tabs: [] }
 ]
 
-export function navGroups(type?: string): NavGroup[] {
+export function navGroups(type?: string, role: Role = 'full'): NavGroup[] {
   if (type === 'national_committee') return committeeGroups
-  if (isLocalWorkspace(type)) return localGroups(type)
+  if (isLocalWorkspace(type)) return localGroups(type, role)
   return nationalGroups
 }
 
-export function groupForPath(path: string, type?: string) {
-  return navGroups(type).find(
+export function groupForPath(path: string, type?: string, role: Role = 'full') {
+  return navGroups(type, role).find(
     group => group.to === path || group.tabs.some(tab => tab.to === path) || group.also?.includes(path)
   )
 }

@@ -73,14 +73,29 @@ Después de publicar, en Supabase: **Authentication → URL Configuration → Si
 
 3. Volvé al Portal y entrá. Ya sos Administración Nacional. **Esto es lo único que se hace con SQL.**
 
-## Paso 5 · Congregación Maldonado y sus usuarios
+## Paso 5 · Congregación Maldonado y sus cuentas
+
+Cada iglesia tiene tres cuentas:
+
+| Cuenta | Cómo entra | Qué ve y qué hace |
+|---|---|---|
+| **Pastor** (y esposa, si se quiere) | Con **su Gmail** | Toda su iglesia. Crea y cambia las contraseñas de Secretaría y Tesorería. |
+| **Secretaría** | Usuario `secretaria.maldonado` y contraseña | Personas, cultos y listas, informes, pedidos de comités. En Dinero anota ofrendas y gastos y ve los totales; **no anota diezmos ni ve su monto**. |
+| **Tesorería** | Usuario `tesoreria.maldonado` y contraseña | Dinero completo (diezmos, comprobantes, servicios del mes) e informes para ver. No ve Personas ni las listas. |
+
+Los comités nacionales tienen una cuenta cada uno (`comite.jovenes`) que ve todo lo del comité.
+Las cuentas con usuario no dependen de una persona: si cambia la secretaria, se le da la misma cuenta
+con una contraseña nueva. Los permisos valen también en la base de datos, no solo en la pantalla.
 
 1. En el Portal: **Iglesias y personas → Iglesias → Nuevo registro** → Congregación Maldonado.
-2. El pastor (y quien ayude: secretaría, tesorería) entra a la dirección del Portal y toca
-   **Es mi primera vez: crear mi usuario**.
-3. Vos, en **☰ → Configuración → Usuarios y permisos**: su correo, su nombre, espacio
-   *Congregación Maldonado*, rol (Pastor, Secretaría, Tesorería) → **Dar acceso**.
-4. Listo: cuando entre, va directo al Inicio de Maldonado y solo ve los datos de Maldonado.
+2. El pastor entra a la dirección del Portal y toca **Es mi primera vez: crear mi usuario** (con su Gmail).
+3. Vos, en **☰ → Configuración → Usuarios y permisos → Acceso con correo**: su correo, su nombre,
+   espacio *Congregación Maldonado*, rol *Pastor* → **Dar acceso**.
+4. En la misma pantalla, **Cuenta con usuario**: espacio *Congregación Maldonado*, rol *Secretaría*.
+   El usuario y una contraseña fácil se completan solos → **Crear cuenta** → **Enviar los datos por
+   WhatsApp**. Lo mismo para *Tesorería*. (El pastor también puede hacerlo desde su Configuración.)
+5. Si un pastor cambia de iglesia: en la lista, **Cambiar de iglesia**. Secretaría y Tesorería quedan.
+6. Si alguien se olvida la contraseña: botón **Contraseña** al lado de su cuenta.
 
 Si ya cargaste datos en la preparación local: **Configuración → Exportar todos los registros (JSON)**
 en esa computadora, y después, conectado como Administración Nacional, **Restaurar desde archivo**:
@@ -92,8 +107,11 @@ se suben a la base central sin borrar nada.
   Si no aparece: menú ⋮ → *Agregar a pantalla principal*.
 - **iPhone (Safari):** botón Compartir → **Agregar a inicio**.
 
-Queda con el ícono del Portal, se abre a pantalla completa y, si no hay señal, abre la última versión
-(para guardar datos sí necesita internet).
+Queda con el ícono del Portal y se abre a pantalla completa.
+
+**Sin señal (por ejemplo, en el templo):** se puede seguir pasando lista y anotando. Lo que se guarda
+queda en el celular, arriba aparece "1 cambio guardado en este celular", y se envía solo cuando vuelve
+la señal. El Portal también abre sin señal con los últimos datos que tenía.
 
 > ¿Y la Play Store? No hace falta para empezar: la app instalada desde el navegador funciona igual.
 > Si más adelante se quiere publicar en la Play Store, este mismo Portal se empaqueta con
@@ -156,6 +174,16 @@ y anexo). La Administración Nacional descarga los de todas las iglesias; cada p
 Además conviene exportar el respaldo completo (Configuración → Exportar todos los registros) una vez por
 mes y guardarlo en la misma carpeta. Ese respaldo guarda todos los datos; las fotos quedan en el
 almacenamiento de Supabase y, las de los informes, también dentro del PDF del año.
+
+## Mensajes de WhatsApp a varios hermanos
+
+En **Personas**, elegí a quiénes (Todos, De la iglesia, Visitas, Faltan seguido…) → **Mensaje por WhatsApp**:
+
+- Escribí el mensaje una vez (o elegí uno de ejemplo). `{nombre}` se cambia por el nombre de cada uno.
+- **Empezar a enviar**: se abre WhatsApp con el mensaje listo para cada persona; tocás enviar y volvés
+  para la siguiente. (WhatsApp no permite que una app mande a muchos de golpe sin su servicio pago.)
+- **Guardar contactos en el celular**: descarga un archivo con todos; al abrirlo en el teléfono se
+  guardan, y en WhatsApp se arma una **lista de difusión** para mandar a todos de una vez.
 
 ## Plan sugerido para la prueba en Maldonado (un mes)
 

@@ -6,6 +6,8 @@ import { Sidebar } from './components/Sidebar'
 import CRM from './CRM'
 import { cloudSignOut } from './cloud'
 import { InstallPrompt } from './components/InstallPrompt'
+import { OfflineBanner } from './components/OfflineBanner'
+import { roleOf, setActiveRole } from './roles'
 
 export type Workspace = {
   id: string
@@ -125,6 +127,8 @@ export default function App() {
     handleSelectUser(null)
   }
 
+  setActiveRole(roleOf(currentWorkspace))
+
   if (introVisible) return <WelcomeSplash onSkip={() => setIntroVisible(false)} />
 
   // Si no hay usuario autenticado, renderizar la pantalla de bienvenida y acceso limpia
@@ -164,6 +168,7 @@ export default function App() {
           onSwitchWorkspace={() => setShowWorkspacePicker(true)}
           onLogout={handleLogout}
         />
+        <OfflineBanner />
         <CRM
           currentUser={currentUser}
           currentWorkspace={currentWorkspace}

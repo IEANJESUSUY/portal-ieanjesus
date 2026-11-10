@@ -53,6 +53,8 @@ export function createDemoState(): DemoState {
     const person = {
       id, name, surname, churchId, status: isFriend ? 'Amigo' : 'Miembro',
       gender: index % 2 === 0 ? 'Femenino' : 'Masculino',
+      // Celulares ficticios (algunos sin cargar, como pasa en la realidad).
+      phone: index % 7 === 6 ? '' : `09${String(1000000 + index * 13579).slice(0, 7)}`,
       birthday: `${birthdayYear}-${String((index % 12) + 1).padStart(2, '0')}-${String((index % 25) + 1).padStart(2, '0')}`,
       baptism: baptized ? `${birthdayYear + 15 + (index % 4)}-${String(((index * 5) % 12) + 1).padStart(2, '0')}-${String(((index * 7) % 27) + 1).padStart(2, '0')}` : '',
       role: index === 0 ? 'Responsable local de Jóvenes' : '',

@@ -37,6 +37,7 @@ import {
 } from '../utils'
 import { NATIONAL_COMMITTEES } from '../../shared/catalog.mjs'
 import { EXPENSE_ITEMS, INCOME_ITEMS } from '../finance'
+import { can, type Role } from '../roles'
 
 type SaveRecord = (collection: string, row: Row) => Promise<any>
 type Screen = 'home' | 'attendance' | 'money' | 'person' | 'report' | 'calendar' | 'requests'
@@ -97,6 +98,7 @@ export function QuickMode({
   workspaceName,
   assignments,
   save,
+  role = 'full',
   onOpenFullReport
 }: {
   state: State
@@ -104,8 +106,10 @@ export function QuickMode({
   workspaceName: string
   assignments: Row[]
   save: SaveRecord
+  role?: Role
   onOpenFullReport: () => void
 }) {
+  const isTreasury = role === 'tesoreria'
   const [screen, setScreen] = useState<Screen>('home')
   const [attendanceStart, setAttendanceStart] = useState<string>('')
   const [requestId, setRequestId] = useState('')
@@ -176,7 +180,7 @@ export function QuickMode({
   if (screen === 'attendance') {
     return <>{tutorial}<AttendanceFlow key={attendanceStart || 'lista'} state={state} scope={scope} belongs={belongs} save={save} initialOption={attendanceStart} onExit={goHome} /></>
   }
-  if (screen === 'money') return <>{tutorial}<MoneyFlow scope={scope} save={save} onExit={goHome} /></>
+  if (screen === 'money') return <>{tutorial}<MoneyFlow scope={scope} save={save} onExit={goHome} allowTithe={can(role, 'tithe')} /></>
   if (screen === 'person') return <>{tutorial}<PersonFlow state={state} scope={scope} belongs={belongs} save={save} onExit={goHome} /></>
 
   // --- Pantalla de inicio ---
@@ -201,7 +205,7 @@ export function QuickMode({
   const average = monthLists.length
     ? Math.round(monthLists.reduce((s, a) => s + (a.people?.length || 0) + Number(a.visitors || 0), 0) / monthLists.length)
     : 0
-  const reminders = [
+  const reminders = isTreasury ? [] : [
     ...missingLists.map(({ schedule, date }) => ({
       key: `lista-${schedule.id}`,
       text: `Falta pasar lista del ${longDate(date).split(' de ')[0]}`,
@@ -244,6 +248,27 @@ export function QuickMode({
       )}
 
       <nav className="qm-actions" aria-label="Acciones principales">
+        {isTreasury ? (
+          <>
+            <button type="button" className="qm-action money" onClick={() => open('money')}>
+              <span className="qm-action-icon"><Wallet size={28} /></span>
+              <span className="qm-action-copy">
+                <strong>Anotar dinero</strong>
+                <small>Diezmos, ofrendas o gastos</small>
+              </span>
+              <ArrowRight size={22} aria-hidden="true" />
+            </button>
+            <button type="button" className="qm-action report" onClick={() => open('report')}>
+              <span className="qm-action-icon"><FileText size={28} /></span>
+              <span className="qm-action-copy">
+                <strong>Informe del mes</strong>
+                <small>Ver lo que va a la planilla</small>
+              </span>
+              <ArrowRight size={22} aria-hidden="true" />
+            </button>
+          </>
+        ) : (
+        <>
         <button type="button" className="qm-action attendance" onClick={() => open('attendance')}>
           <span className="qm-action-icon"><ClipboardList size={28} /></span>
           <span className="qm-action-copy">
@@ -284,6 +309,8 @@ export function QuickMode({
           </span>
           <ArrowRight size={22} aria-hidden="true" />
         </button>
+        </>
+        )}
       </nav>
 
       {upcoming.length > 0 && (
@@ -823,7 +850,7 @@ function AttendanceFlow({
 
 // --- 2. Anotar dinero ---
 
-function MoneyFlow({ scope, save, onExit }: { scope: string; save: SaveRecord; onExit: () => void }) {
+function MoneyFlow({ scope, save, onExit, allowTithe = true }: { scope: string; save: SaveRecord; onExit: () => void; allowTithe?: boolean }) {
   const [step, setStep] = useState<'direction' | 'amount' | 'concept' | 'confirm' | 'done'>('direction')
   const [direction, setDirection] = useState<'Ingreso' | 'Egreso'>('Ingreso')
   const [amountText, setAmountText] = useState('')
@@ -954,7 +981,8 @@ function MoneyFlow({ scope, save, onExit }: { scope: string; save: SaveRecord; o
   }
 
   if (step === 'concept') {
-    const concepts = isIncome ? INCOME_CONCEPTS : EXPENSE_CONCEPTS
+    // Los diezmos los anota Tesorería o el pastor.
+    const concepts = isIncome ? INCOME_CONCEPTS.filter(c => allowTithe || c.category !== 'Diezmo') : EXPENSE_CONCEPTS
     return (
       <section className="qm qm-flow">
         <FlowHeader title={isIncome ? '¿De qué es?' : '¿En qué se gastó?'} step="Anotar dinero · paso 3 de 3" onBack={() => go('amount')} />

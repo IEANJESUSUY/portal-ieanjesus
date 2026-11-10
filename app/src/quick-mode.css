@@ -460,6 +460,24 @@
 .crm .fixed-expense.other span { color: #5b6f82; font-weight: 600; }
 .qm-chip-hint { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; opacity: .7; }
 
+/* Mensaje por WhatsApp a varios */
+.bulk-wa-count { margin: 0; color: #12305a; font-size: 15.5px; }
+.bulk-wa-templates { display: flex; flex-wrap: wrap; gap: 6px; }
+.bulk-wa-templates button { min-height: 38px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--qm-navy); font-weight: 700; cursor: pointer; }
+.bulk-wa-templates button.active { background: #127a43; border-color: #127a43; color: #fff; }
+.bulk-wa-message { display: grid; gap: 6px; font-weight: 700; color: #34465f; font-size: 14.5px; }
+.bulk-wa-message textarea { padding: 10px 12px; border: 1px solid #c8d6e8; border-radius: 12px; font: inherit; font-weight: 400; font-size: 16px; resize: vertical; }
+.bulk-wa-preview { margin: 0; padding: 10px 12px; border-radius: 12px; background: #e9f8ef; color: #1d3b2a; font-size: 15px; line-height: 1.45; white-space: pre-wrap; }
+.bulk-wa-list summary { cursor: pointer; font-weight: 700; color: #243b70; padding: 6px 0; }
+.bulk-wa-list label { display: flex; gap: 10px; align-items: center; padding: 6px 2px; font-size: 15px; }
+.bulk-wa-list input { width: 20px; height: 20px; }
+.bulk-wa-help { color: #5b6f82; font-size: 13.5px; line-height: 1.45; }
+.bulk-wa-step { display: grid; gap: 10px; }
+.bulk-wa-step h3 { margin: 0; color: #12305a; font-size: 1.3rem; }
+.bulk-wa-progress { height: 8px; border-radius: 999px; background: #e7edf5; overflow: hidden; }
+.bulk-wa-progress i { display: block; height: 100%; background: #2f9e5b; transition: width .25s ease; }
+.crm .bulk-wa-open, .bulk-wa-open { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 52px; background: #127a43; border-color: #127a43; color: #fff; font-size: 16px; text-decoration: none; }
+
 /* Importar personas del formulario de Google */
 .people-import-backdrop {
   position: fixed; inset: 0; z-index: 1500; display: grid; place-items: center; padding: 16px;

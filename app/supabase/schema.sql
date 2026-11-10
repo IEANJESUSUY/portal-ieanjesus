@@ -69,6 +69,43 @@ language sql stable security definer set search_path = public as $$
   where collection = 'committeeMembers' and committee_key = any (my_committee_keys())
 $$;
 
+-- Rol del usuario en una congregación (si tiene varios, el de más permiso).
+--   Pastor: todo · Secretaría: todo menos los diezmos · Tesorería: solo dinero e informes.
+create or replace function public.role_kind(p_role text) returns text
+language sql immutable as $$
+  select case when p_role ilike 'tesor%' then 'tesoreria' when p_role ilike 'secret%' then 'secretaria' else 'full' end
+$$;
+
+create or replace function public.church_role(p_church text) returns text
+language sql stable security definer set search_path = public as $$
+  select role from memberships where user_id = auth.uid() and church_id = p_church
+  order by case role_kind(role) when 'full' then 0 when 'secretaria' then 1 else 2 end limit 1
+$$;
+
+create or replace function public.church_can_read(p_church text, p_collection text, p_body jsonb) returns boolean
+language sql stable security definer set search_path = public as $$
+  select case role_kind(church_role(p_church))
+    when 'tesoreria' then p_collection in ('transactions', 'monthlyReports', 'churches', 'events', 'groups', 'serviceSchedules', 'activityAssignments')
+    when 'secretaria' then not (p_collection = 'transactions' and p_body->>'category' = 'Diezmo')
+    else true end
+$$;
+
+create or replace function public.church_can_write(p_church text, p_collection text, p_body jsonb) returns boolean
+language sql stable security definer set search_path = public as $$
+  select case role_kind(church_role(p_church))
+    when 'tesoreria' then p_collection = 'transactions'
+    when 'secretaria' then p_collection <> 'churches' and not (p_collection = 'transactions' and p_body->>'category' = 'Diezmo')
+    else true end
+$$;
+
+-- El pastor (o Nacional) administra las cuentas de Secretaría y Tesorería de su iglesia.
+create or replace function public.can_manage_church(p_church text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select is_national_admin() or exists (
+    select 1 from memberships where user_id = auth.uid() and church_id = p_church and role ilike 'pastor%'
+  )
+$$;
+
 -- 3. Reglas de acceso (RLS) -----------------------------------------------------------------------
 
 alter table public.memberships enable row level security;
@@ -86,7 +123,7 @@ create policy memberships_admin on public.memberships for all to authenticated
 drop policy if exists records_read on public.records;
 create policy records_read on public.records for select to authenticated using (
   is_national_admin()
-  or church_id = any (my_church_ids())
+  or (church_id = any (my_church_ids()) and church_can_read(church_id, collection, body))
   or committee_key = any (my_committee_keys())
   -- Lo nacional lo ven todos: congregaciones, actividades de comités y eventos nacionales.
   or collection in ('churches', 'nationalActivities')
@@ -97,14 +134,22 @@ create policy records_read on public.records for select to authenticated using (
 drop policy if exists records_insert on public.records;
 create policy records_insert on public.records for insert to authenticated with check (
   is_national_admin()
-  or church_id = any (my_church_ids())
+  or (church_id = any (my_church_ids()) and church_can_write(church_id, collection, body))
   or committee_key = any (my_committee_keys())
 );
 
 drop policy if exists records_update on public.records;
 create policy records_update on public.records for update to authenticated
-  using (is_national_admin() or church_id = any (my_church_ids()) or committee_key = any (my_committee_keys()))
-  with check (is_national_admin() or church_id = any (my_church_ids()) or committee_key = any (my_committee_keys()));
+  using (
+    is_national_admin()
+    or (church_id = any (my_church_ids()) and church_can_write(church_id, collection, body))
+    or committee_key = any (my_committee_keys())
+  )
+  with check (
+    is_national_admin()
+    or (church_id = any (my_church_ids()) and church_can_write(church_id, collection, body))
+    or committee_key = any (my_committee_keys())
+  );
 
 drop policy if exists records_delete on public.records;
 create policy records_delete on public.records for delete to authenticated using (is_national_admin());
@@ -158,8 +203,11 @@ create policy fotos_insert on storage.objects for insert to authenticated with c
 drop policy if exists fotos_delete on storage.objects;
 create policy fotos_delete on storage.objects for delete to authenticated using (bucket_id = 'fotos' and is_national_admin());
 
--- 6. Usuarios y permisos desde el Portal (Configuración → Usuarios) -----------------------------
--- Cada persona crea su usuario con "Crear mi usuario"; la Administración Nacional le asigna su espacio.
+-- 6. Cuentas y permisos desde el Portal (Configuración → Usuarios y permisos) --------------------
+-- Pastores y Nacional entran con su correo (cada uno crea su usuario con "Es mi primera vez").
+-- Secretaría, Tesorería y comités tienen cuentas con usuario (secretaria.maldonado), que no dependen de
+-- una persona: las crea Nacional (o el pastor, las de su iglesia) y les pone o cambia la contraseña.
+-- Por dentro, esas cuentas son usuario@cuentas.ieanjesus.uy, una dirección que no recibe correos.
 
 create or replace function public.assign_membership(
   p_email text, p_space_type text, p_church_id text, p_committee_key text, p_role text, p_display_name text
@@ -167,9 +215,14 @@ create or replace function public.assign_membership(
 language plpgsql security definer set search_path = public, auth as $$
 declare v_user uuid;
 begin
-  if not is_national_admin() then raise exception 'Solo la Administración Nacional puede dar permisos.'; end if;
+  if not (
+    is_national_admin()
+    or (p_space_type in ('church', 'preaching_place') and role_kind(p_role) in ('secretaria', 'tesoreria') and can_manage_church(p_church_id))
+  ) then
+    raise exception 'No tenés permiso para dar ese acceso.';
+  end if;
   select id into v_user from auth.users where lower(email) = lower(trim(p_email));
-  if v_user is null then raise exception 'Ese correo todavía no creó su usuario en el Portal.'; end if;
+  if v_user is null then raise exception 'Ese correo o usuario todavía no existe en el Portal.'; end if;
   insert into memberships (user_id, space_type, church_id, committee_key, role, display_name)
   values (v_user, p_space_type, nullif(p_church_id, ''), nullif(p_committee_key, ''), coalesce(nullif(p_role, ''), 'Pastor'), nullif(p_display_name, ''));
 end $$;
@@ -179,30 +232,51 @@ returns table (id uuid, email text, space_type text, church_id text, committee_k
 language sql stable security definer set search_path = public, auth as $$
   select m.id, u.email::text, m.space_type, m.church_id, m.committee_key, m.role, m.display_name
   from memberships m join auth.users u on u.id = m.user_id
-  where is_national_admin()
-  order by u.email
+  where is_national_admin() or (m.church_id is not null and can_manage_church(m.church_id))
+  order by m.church_id, u.email
 $$;
+
+create or replace function public.remove_membership(p_id uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_member memberships;
+begin
+  select * into v_member from memberships where id = p_id;
+  if v_member.id is null then return; end if;
+  if not (is_national_admin() or (role_kind(v_member.role) in ('secretaria', 'tesoreria') and can_manage_church(v_member.church_id))) then
+    raise exception 'No tenés permiso para quitar ese acceso.';
+  end if;
+  delete from memberships where id = p_id;
+end $$;
+
+create or replace function public.set_account_password(p_email text, p_password text) returns void
+language plpgsql security definer set search_path = public, auth, extensions as $$
+declare v_user uuid;
+begin
+  if length(coalesce(p_password, '')) < 8 then raise exception 'La contraseña tiene que tener al menos 8 letras o números.'; end if;
+  select id into v_user from auth.users where lower(email) = lower(trim(p_email));
+  if v_user is null then raise exception 'No existe esa cuenta.'; end if;
+  -- Nacional cambia cualquiera; el pastor, solo las cuentas de Secretaría y Tesorería de su iglesia.
+  if not (
+    is_national_admin()
+    or (lower(p_email) like '%@cuentas.ieanjesus.uy' and exists (
+      select 1 from memberships m where m.user_id = v_user and role_kind(m.role) in ('secretaria', 'tesoreria') and can_manage_church(m.church_id)
+    ))
+  ) then
+    raise exception 'No podés cambiar la contraseña de esa cuenta.';
+  end if;
+  update auth.users set encrypted_password = extensions.crypt(p_password, extensions.gen_salt('bf')), updated_at = now() where id = v_user;
+end $$;
 
 revoke execute on function public.assign_membership(text, text, text, text, text, text) from anon;
 revoke execute on function public.list_memberships() from anon;
+revoke execute on function public.remove_membership(uuid) from anon;
+revoke execute on function public.set_account_password(text, text) from anon;
 
 -- 7. Primer administrador ------------------------------------------------------------------------
--- Después de crear tu usuario en Authentication → Users, cambiá el correo y ejecutá:
+-- Es lo único que se hace con SQL. Creá tu usuario en el Portal ("Es mi primera vez"), cambiá el correo
+-- de abajo por el tuyo y ejecutá. Todo lo demás (pastores, secretarías, tesorerías, comités) se hace
+-- desde el Portal: Configuración → Usuarios y permisos.
 --
 -- insert into public.memberships (user_id, space_type, role, display_name)
 -- select id, 'national_admin', 'Administración Nacional', 'Tu nombre'
 -- from auth.users where email = 'tu-correo@gmail.com';
---
--- Para habilitar a un pastor (primero registrá la congregación en el Portal):
---
--- insert into public.memberships (user_id, space_type, church_id, role, display_name)
--- select u.id, 'church', r.id, 'Pastor', 'Pastor de Maldonado'
--- from auth.users u, public.records r
--- where u.email = 'pastor.maldonado@gmail.com'
---   and r.collection = 'churches' and r.body->>'name' = 'Congregación Maldonado';
---
--- Para un comité nacional:
---
--- insert into public.memberships (user_id, space_type, committee_key, role, display_name)
--- select id, 'national_committee', 'jovenes', 'Presidente', 'Comité de Jóvenes'
--- from auth.users where email = 'jovenes@gmail.com';
