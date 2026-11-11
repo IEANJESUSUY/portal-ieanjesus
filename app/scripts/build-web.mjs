@@ -6,7 +6,25 @@ import { buildSingleHtml, root } from './build-single.mjs'
 
 // PORTAL_OUT permite compilar en otra carpeta (lo usan las pruebas automáticas).
 const out = process.env.PORTAL_OUT || `${root}dist-web`
+// Reglas de seguridad del navegador: el Portal solo puede conectarse con su base (Supabase) y con
+// Google (fuentes y hojas de respuestas). Si alguien lograra meter código, no podría mandar datos a otro lado.
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https://*.supabase.co",
+  "connect-src 'self' data: blob: https://*.supabase.co https://docs.google.com https://*.googleusercontent.com",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-src 'none'"
+].join('; ')
 const head = [
+  `<meta http-equiv="Content-Security-Policy" content="${csp}">`,
+  '<meta name="referrer" content="strict-origin-when-cross-origin">',
   '<link rel="manifest" href="manifest.webmanifest">',
   '<meta name="theme-color" content="#243b70">',
   '<meta name="description" content="Portal Nacional de IEANJESÚS Uruguay: personas, cultos, dinero, informes y comités.">',

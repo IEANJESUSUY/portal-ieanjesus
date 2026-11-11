@@ -114,8 +114,8 @@ queda en el celular, arriba aparece "1 cambio guardado en este celular", y se en
 la señal. El Portal también abre sin señal con los últimos datos que tenía.
 
 > ¿Y la Play Store? No hace falta para empezar: la app instalada desde el navegador funciona igual.
-> Si más adelante se quiere publicar en la Play Store, este mismo Portal se empaqueta con
-> Bubblewrap/Capacitor (cuenta de Google Play: USD 25, una sola vez).
+> El Portal ya cumple lo que pide Google (política de privacidad, borrar cuenta, sin rastreo). Los pasos
+> y las respuestas para la ficha están en [play-store.md](play-store.md).
 
 ---
 
@@ -140,6 +140,14 @@ y GitHub Pages publica la versión nueva sola. En el celular se actualiza al vol
 
 - La clave *anon public* es pública por diseño: lo que protege los datos son las reglas de
   `schema.sql` (cada usuario ve solo lo que le corresponde). No las borres.
+- Sin iniciar sesión no se puede leer ni llamar nada; quien crea su usuario no ve nada hasta que se le
+  asigna un espacio. Contraseñas de al menos 8 caracteres, guardadas cifradas.
+- El navegador solo deja que el Portal se conecte con su base y con Google (regla CSP).
+- Al cerrar sesión se borra del celular la copia de los datos (importante en celulares compartidos).
+- No usa cookies ni rastreo, así que no hace falta aviso de cookies. La política de privacidad está en
+  `privacidad.html` y al crear un usuario hay que aceptarla.
+- **Datos sensibles (Ley 18.331):** antes de cargar datos reales, inscribir la base en la URCDP
+  (ver [play-store.md](play-store.md#ley-de-datos-de-uruguay-hacer-antes-de-cargar-datos-reales)).
 - Los diezmos se anotan como total, sin nombres, y sus montos están ocultos por defecto.
 - **Fotos:** se comprimen en el celular antes de subirse (WebP; actividades hasta 1280 px ≈ 100–180 KB,
   comprobantes ≈ 80–150 KB, fotos de personas ≈ 20–30 KB) y se guardan como archivos en el

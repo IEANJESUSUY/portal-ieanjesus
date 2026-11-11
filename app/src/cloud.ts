@@ -106,6 +106,12 @@ export async function cloudSignUp(email: string, password: string) {
 
 export async function cloudSignOut() {
   const session = readSession()
+  // En un celular compartido no queda la copia de los datos de esta persona. Lo que guardó sin
+  // señal y todavía no se envió se conserva (solo para su usuario) y se manda cuando vuelva a entrar.
+  if (session) {
+    await kv('readwrite', s => { s.delete(userKey('state')) }).catch(() => undefined)
+    try { localStorage.removeItem(`pn_cloud_spaces:${session.user.id}`) } catch { /* sin almacenamiento */ }
+  }
   writeSession(null)
   cache = null
   if (session) {

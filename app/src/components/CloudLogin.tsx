@@ -14,6 +14,7 @@ export function CloudLogin({ onSelectUser }: { onSelectUser?: (user: any) => voi
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [notice, setNotice] = useState('')
+  const [accepted, setAccepted] = useState(false)
 
   async function enter() {
     const { email: userEmail, displayName, spaces } = await cloudSpaces()
@@ -80,6 +81,12 @@ export function CloudLogin({ onSelectUser }: { onSelectUser?: (user: any) => voi
           </button>
         </div>
       </label>
+      {creating && (
+        <label className="cloud-login-consent">
+          <input type="checkbox" required checked={accepted} onChange={e => setAccepted(e.target.checked)} />
+          <span>Leí y acepto la <a href="privacidad.html" target="_blank" rel="noreferrer">política de privacidad</a>.</span>
+        </label>
+      )}
       {error && <p className="cloud-login-error" role="alert">{error}</p>}
       {notice && <p className="cloud-login-notice" role="status">{notice}</p>}
       <button type="submit" className="primary-action official-setup-action" disabled={busy}>
@@ -92,6 +99,7 @@ export function CloudLogin({ onSelectUser }: { onSelectUser?: (user: any) => voi
         ¿No tenés usuario o te olvidaste la contraseña?{' '}
         <a href={whatsappLink(SUPPORT_PHONE, 'Hola, necesito ayuda para entrar al Portal Nacional.')} target="_blank" rel="noreferrer">Escribí por WhatsApp</a>.
       </p>
+      <p className="cloud-login-help"><a href="privacidad.html" target="_blank" rel="noreferrer">Privacidad y cómo borrar tu cuenta</a></p>
     </form>
   )
 }

@@ -62,6 +62,12 @@ language sql stable security definer set search_path = public as $$
   select coalesce(array_agg(committee_key), '{}') from memberships where user_id = auth.uid() and committee_key is not null
 $$;
 
+-- Tiene algún acceso asignado. Quien solo creó su usuario no ve nada hasta que se lo asignen.
+create or replace function public.is_member() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from memberships where user_id = auth.uid())
+$$;
+
 -- Personas que integran un comité del usuario (para ver sus líderes en cada iglesia).
 create or replace function public.my_committee_people() returns text[]
 language sql stable security definer set search_path = public as $$
@@ -72,7 +78,7 @@ $$;
 -- Rol del usuario en una congregación (si tiene varios, el de más permiso).
 --   Pastor: todo · Secretaría: todo menos los diezmos · Tesorería: solo dinero e informes.
 create or replace function public.role_kind(p_role text) returns text
-language sql immutable as $$
+language sql immutable set search_path = '' as $$
   select case when p_role ilike 'tesor%' then 'tesoreria' when p_role ilike 'secret%' then 'secretaria' else 'full' end
 $$;
 
@@ -125,17 +131,18 @@ create policy records_read on public.records for select to authenticated using (
   is_national_admin()
   or (church_id = any (my_church_ids()) and church_can_read(church_id, collection, body))
   or committee_key = any (my_committee_keys())
-  -- Lo nacional lo ven todos: congregaciones, actividades de comités y eventos nacionales.
-  or collection in ('churches', 'nationalActivities')
-  or (church_id is null and collection in ('events', 'groups'))
+  -- Lo nacional lo ven todos los que tienen acceso: congregaciones, actividades de comités y eventos nacionales.
+  or (is_member() and collection in ('churches', 'nationalActivities'))
+  or (is_member() and church_id is null and collection in ('events', 'groups'))
   or (collection = 'people' and id = any (my_committee_people()))
 );
 
+-- Un comité escribe lo suyo, pero no puede crear ni cambiar congregaciones.
 drop policy if exists records_insert on public.records;
 create policy records_insert on public.records for insert to authenticated with check (
   is_national_admin()
   or (church_id = any (my_church_ids()) and church_can_write(church_id, collection, body))
-  or committee_key = any (my_committee_keys())
+  or (committee_key = any (my_committee_keys()) and collection <> 'churches')
 );
 
 drop policy if exists records_update on public.records;
@@ -143,12 +150,12 @@ create policy records_update on public.records for update to authenticated
   using (
     is_national_admin()
     or (church_id = any (my_church_ids()) and church_can_write(church_id, collection, body))
-    or committee_key = any (my_committee_keys())
+    or (committee_key = any (my_committee_keys()) and collection <> 'churches')
   )
   with check (
     is_national_admin()
     or (church_id = any (my_church_ids()) and church_can_write(church_id, collection, body))
-    or committee_key = any (my_committee_keys())
+    or (committee_key = any (my_committee_keys()) and collection <> 'churches')
   );
 
 drop policy if exists records_delete on public.records;
@@ -267,10 +274,6 @@ begin
   update auth.users set encrypted_password = extensions.crypt(p_password, extensions.gen_salt('bf')), updated_at = now() where id = v_user;
 end $$;
 
-revoke execute on function public.assign_membership(text, text, text, text, text, text) from anon;
-revoke execute on function public.list_memberships() from anon;
-revoke execute on function public.remove_membership(uuid) from anon;
-revoke execute on function public.set_account_password(text, text) from anon;
 
 -- 6b. Respaldo a Google Drive -------------------------------------------------------------------
 -- El programa de Drive (drive/RespaldoDrive.gs) lee los registros con una llave propia que SOLO
@@ -294,8 +297,21 @@ begin
                               'committee_key', r.committee_key, 'updated_at', r.updated_at, 'body', r.body)
     from public.records r order by r.id offset greatest(p_offset, 0) limit least(greatest(p_limit, 1), 1000);
 end $$;
-revoke execute on function public.drive_export(text, int, int) from public;
-grant execute on function public.drive_export(text, int, int) to anon, authenticated;
+
+-- 6c. Quién puede llamar cada función ------------------------------------------------------------
+-- Por defecto Postgres deja llamar cualquier función a todos (incluso sin iniciar sesión). Acá se
+-- cierra todo y se abre solo lo necesario: las funciones del Portal, solo con sesión iniciada; el
+-- respaldo de Drive, con su llave; el historial de cambios, nadie (lo usa la base sola).
+revoke execute on all functions in schema public from public, anon, authenticated;
+alter default privileges in schema public revoke execute on functions from public, anon, authenticated;
+grant execute on function
+  public.is_national_admin(), public.is_member(), public.my_church_ids(), public.my_committee_keys(),
+  public.my_committee_people(), public.role_kind(text), public.church_role(text),
+  public.church_can_read(text, text, jsonb), public.church_can_write(text, text, jsonb),
+  public.can_manage_church(text), public.list_memberships(), public.remove_membership(uuid),
+  public.assign_membership(text, text, text, text, text, text), public.set_account_password(text, text)
+  to authenticated;
+grant execute on function public.drive_export(text, int, int) to anon;
 
 -- 7. Primer administrador ------------------------------------------------------------------------
 -- Es lo único que se hace con SQL. Creá tu usuario en el Portal ("Es mi primera vez"), cambiá el correo

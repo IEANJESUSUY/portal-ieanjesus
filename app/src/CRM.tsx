@@ -7156,6 +7156,11 @@ function OwnPassword() {
       </label>
       <button type="submit" className="secondary-action" disabled={busy}>{busy ? 'Guardando…' : 'Cambiar mi contraseña'}</button>
       {message && <p role="status" className="section-help">{message}</p>}
+      <p className="section-help">
+        <a href="privacidad.html" target="_blank" rel="noreferrer">Política de privacidad</a>
+        {' · '}
+        <a href="privacidad.html#borrar-cuenta" target="_blank" rel="noreferrer">Borrar mi cuenta y mis datos</a>
+      </p>
     </form>
   )
 }

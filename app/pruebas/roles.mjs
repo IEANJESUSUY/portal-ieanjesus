@@ -58,7 +58,7 @@ await run('Mensaje por WhatsApp a varios', async ({ browser, check, watch }) => 
   await page.locator('.bulk-wa').waitFor()
   await page.getByRole('button', { name: 'Te extrañamos' }).click()
   const preview = await page.locator('.bulk-wa-preview').innerText()
-  check(/Así le llega a \w+: Hola \w+, te extrañamos/.test(preview), `el mensaje se personaliza: «${preview.slice(0, 70)}…»`)
+  check(/Así le llega a \p{L}+: Hola \p{L}+, te extrañamos/u.test(preview), `el mensaje se personaliza: «${preview.slice(0, 70)}…»`)
 
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Guardar contactos/ }).click()])
   const vcf = readFileSync(await download.path(), 'utf8')

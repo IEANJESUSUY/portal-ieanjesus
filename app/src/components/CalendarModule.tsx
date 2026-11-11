@@ -573,7 +573,7 @@ export function CalendarModule({
                       </span>
                     </div>
                     {ev.onlineUrl && (
-                      <a href={ev.onlineUrl} target="_blank" rel="noreferrer" className="online-event-link">
+                      <a href={/^https?:\/\//i.test(String(ev.onlineUrl).trim()) ? String(ev.onlineUrl).trim() : undefined} target="_blank" rel="noreferrer" className="online-event-link">
                         <Video size={14} /> Abrir enlace de sala virtual
                       </a>
                     )}
