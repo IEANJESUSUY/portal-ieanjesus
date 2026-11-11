@@ -1,6 +1,7 @@
 # Publica el Portal en GitHub Pages cada vez que se suben cambios a la rama principal.
-# Las claves de la base central se cargan en GitHub → Settings → Secrets and variables → Actions:
-#   VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY
+# Las claves de la base central se cargan en GitHub → Settings → Secrets and variables → Actions
+# (como variables o como secretos): VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.
+# Las dos son públicas por diseño (van dentro de la página); lo que protege los datos son las reglas de schema.sql.
 name: Publicar el Portal
 
 on:
@@ -38,8 +39,8 @@ jobs:
       - name: Compilar la versión web
         run: node scripts/build-web.mjs
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app/dist-web
