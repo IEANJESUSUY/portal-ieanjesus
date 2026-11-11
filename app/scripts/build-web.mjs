@@ -25,6 +25,8 @@ const csp = [
 const head = [
   `<meta http-equiv="Content-Security-Policy" content="${csp}">`,
   '<meta name="referrer" content="strict-origin-when-cross-origin">',
+  // No aparece en Google ni en otros buscadores: solo entra quien tiene el enlace.
+  '<meta name="robots" content="noindex, nofollow, noarchive">',
   '<link rel="manifest" href="manifest.webmanifest">',
   '<meta name="theme-color" content="#243b70">',
   '<meta name="description" content="Portal Nacional de IEANJESÚS Uruguay: personas, cultos, dinero, informes y comités.">',
@@ -42,5 +44,6 @@ cpSync(`${root}public`, out, { recursive: true })
 writeFileSync(`${out}/index.html`, await buildSingleHtml({ inlineLogo: false, head }))
 // GitHub Pages no debe procesar los archivos con Jekyll.
 writeFileSync(`${out}/.nojekyll`, '')
+writeFileSync(`${out}/robots.txt`, 'User-agent: *\nDisallow: /\n')
 const cloud = process.env.VITE_SUPABASE_URL ? 'conectada a la base central' : 'sin base central (guarda en cada dispositivo)'
 console.log(`Listo: ${process.env.PORTAL_OUT ? out : 'app/dist-web/'} para publicar · ${cloud}.`)
