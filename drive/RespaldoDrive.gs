@@ -41,8 +41,7 @@ function instalar() {
 
 // ▶ Se puede ejecutar a mano cuando se quiera ver todo al día.
 function actualizar() {
-  const registros = leerTodo()
-  const datos = organizar(registros)
+  // Primero las carpetas: aparecen aunque todavía no haya datos o falle la conexión.
   const raiz = DriveApp.getFolderById(CONFIG.CARPETA_ID)
   const carpetas = {
     dinero: subcarpeta(raiz, '1. Dinero'),
@@ -51,6 +50,8 @@ function actualizar() {
     respaldos: subcarpeta(raiz, '4. Respaldos')
   }
   subcarpeta(carpetas.informes, 'PDF del año')
+  const registros = leerTodo()
+  const datos = organizar(registros)
 
   const anioActual = Number(hoy().slice(0, 4))
   const anios = new Set([anioActual])
