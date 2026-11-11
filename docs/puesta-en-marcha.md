@@ -163,11 +163,35 @@ Uso estimado por iglesia: unos 4 MB de datos y 36 MB de fotos por año.
 - **Si algún día se acerca al límite** (Supabase avisa por correo): borrar del almacenamiento las fotos
   de años ya guardados en Drive, o sumar espacio (cuesta centavos por GB).
 
+## Respaldo automático en Google Drive
+
+El programa [`drive/RespaldoDrive.gs`](../drive/RespaldoDrive.gs) corre en la cuenta de Google de la
+iglesia y, **todos los días a las 3 de la mañana**, actualiza la carpeta *APP NACIONAL* de Drive:
+
+| Subcarpeta | Qué tiene |
+|---|---|
+| **1. Dinero** | Planilla *Dinero AAAA*: resumen por mes de cada iglesia y comité (diezmos, ofrendas, gastos, saldo), totales del año, todos los movimientos y los servicios (luz, agua, internet…) |
+| **2. Informes** | Planilla *Informes AAAA* con cada informe y sus números; subcarpeta *PDF del año* para los PDF |
+| **3. Iglesias** | Planilla *Iglesias y comités*: personas, de la iglesia, visitas, bautizados y células por iglesia |
+| **4. Respaldos** | Copia completa de los datos: una por mes (se guardan todas) y la más reciente |
+
+Usa una **llave de respaldo que solo permite leer** (función `drive_export` de `schema.sql`): no puede
+cambiar ni borrar nada. La versión del programa en GitHub no tiene llaves.
+
+Instalarlo (una sola vez):
+1. Con el Gmail de la iglesia, entrá a <https://script.google.com> → **Nuevo proyecto**. Nombre: *Respaldo Portal*.
+2. Borrá lo que aparece y pegá el programa **con las llaves ya puestas** (te lo da Claude; no lo
+   compartas). Guardá con el disquete.
+3. Arriba, elegí la función **instalar** → **Ejecutar** → *Revisar permisos* → elegí la cuenta de la
+   iglesia → *Configuración avanzada → Ir a Respaldo Portal* → **Permitir**.
+4. Listo: aparecen las 4 subcarpetas. Para ver todo al día en cualquier momento: función
+   **actualizar** → Ejecutar.
+
 ## Copia de los informes en Google Drive (una vez por año, o cuando quieras)
 
 1. **Informes → Informes del año**: elegí el año → **Descargar en PDF**.
 2. En la ventana que se abre, destino **Guardar como PDF** → Guardar.
-3. Subí ese PDF a una carpeta de Drive, por ejemplo *Portal IEANJESÚS / Informes / 2026*.
+3. Subí ese PDF a Drive, a *APP NACIONAL / 2. Informes / PDF del año*.
 
 Sale un solo PDF con todos los informes enviados de ese año (planilla oficial, actividades con sus fotos
 y anexo). La Administración Nacional descarga los de todas las iglesias; cada pastor, los de la suya.

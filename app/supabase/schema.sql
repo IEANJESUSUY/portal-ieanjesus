@@ -272,6 +272,31 @@ revoke execute on function public.list_memberships() from anon;
 revoke execute on function public.remove_membership(uuid) from anon;
 revoke execute on function public.set_account_password(text, text) from anon;
 
+-- 6b. Respaldo a Google Drive -------------------------------------------------------------------
+-- El programa de Drive (drive/RespaldoDrive.gs) lee los registros con una llave propia que SOLO
+-- sirve para leer. En la base se guarda la huella de la llave, nunca la llave.
+-- Para crear o cambiar la llave: insert into public.export_tokens (token_hash)
+--   values (encode(extensions.digest('LA-LLAVE', 'sha256'), 'hex'));
+create table if not exists public.export_tokens (
+  token_hash text primary key,
+  created_at timestamptz not null default now()
+);
+alter table public.export_tokens enable row level security;  -- sin reglas: nadie la lee desde afuera
+
+create or replace function public.drive_export(p_token text, p_offset int default 0, p_limit int default 1000)
+returns setof jsonb language plpgsql stable security definer set search_path = public, extensions as $$
+begin
+  if not exists (select 1 from public.export_tokens where token_hash = encode(extensions.digest(p_token, 'sha256'), 'hex')) then
+    raise exception 'Llave de respaldo no válida';
+  end if;
+  return query
+    select jsonb_build_object('id', r.id, 'collection', r.collection, 'church_id', r.church_id,
+                              'committee_key', r.committee_key, 'updated_at', r.updated_at, 'body', r.body)
+    from public.records r order by r.id offset greatest(p_offset, 0) limit least(greatest(p_limit, 1), 1000);
+end $$;
+revoke execute on function public.drive_export(text, int, int) from public;
+grant execute on function public.drive_export(text, int, int) to anon, authenticated;
+
 -- 7. Primer administrador ------------------------------------------------------------------------
 -- Es lo único que se hace con SQL. Creá tu usuario en el Portal ("Es mi primera vez"), cambiá el correo
 -- de abajo por el tuyo y ejecutá. Todo lo demás (pastores, secretarías, tesorerías, comités) se hace
